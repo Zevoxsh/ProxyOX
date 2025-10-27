@@ -157,7 +157,22 @@ echo "  sudo systemctl stop proxyox       - Stop ProxyOX"
 echo "  sudo systemctl restart proxyox    - Restart ProxyOX"
 echo "  sudo systemctl status proxyox     - Check status"
 echo "  sudo journalctl -u proxyox -f     - View logs"
-echo ""
-echo "To start ProxyOX now, run:"
-echo "  sudo systemctl start proxyox"
-echo ""
+
+# Start the service and show status/logs
+if command -v systemctl >/dev/null 2>&1; then
+    echo "🚀 Starting proxyox service..."
+    if systemctl start proxyox; then
+        sleep 1
+        echo "✅ proxyox started. Showing status and recent logs:"
+        systemctl --no-pager status proxyox -n 20
+        echo ""
+        echo "📝 Recent logs (last 100 lines):"
+        journalctl -u proxyox -n 100 --no-pager
+    else
+        echo "❌ Failed to start proxyox. Showing recent journal entries for debugging:"
+        journalctl -u proxyox -n 200 --no-pager
+        exit 1
+    fi
+else
+    echo "⚠️  systemctl not found. Please start the service manually."
+fi
