@@ -29,7 +29,7 @@ mimetypes.add_type('application/json', '.json')
 class Dashboard:
     def __init__(self, proxy_manager):
         self.proxy_manager = proxy_manager
-        self.app = web.Application()
+        self.app = web.Application(middlewares=[self.auth_middleware])
         self.app.router.add_get("/", self.handle_index)
         self.app.router.add_get("/ws", self.websocket_handler)
         
@@ -43,6 +43,15 @@ class Dashboard:
 
     def create_app(self):
         return self.app
+    
+    @web.middleware
+    async def auth_middleware(self, request, handler):
+        """Middleware to check authentication on all requests"""
+        # Check authentication
+        if not self.check_auth(request):
+            return self.require_auth()
+        
+        return await handler(request)
     
     def check_auth(self, request):
         """Check HTTP Basic Authentication"""
@@ -73,10 +82,6 @@ class Dashboard:
         )
 
     async def handle_index(self, request):
-        # Check authentication
-        if not self.check_auth(request):
-            return self.require_auth()
-        
         index_path = project_root / "src" / "dashboard" / "static" / "index.html"
         with open(index_path, "r", encoding="utf-8") as f:
             html = f.read()
@@ -85,10 +90,6 @@ class Dashboard:
         return web.Response(text=html, content_type="text/html")
 
     async def websocket_handler(self, request):
-        # Check authentication before WebSocket upgrade
-        if not self.check_auth(request):
-            return self.require_auth()
-        
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         logger.info("Client connected to dashboard")
