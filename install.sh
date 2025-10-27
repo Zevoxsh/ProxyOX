@@ -105,7 +105,7 @@ User=$REAL_USER
 Group=$REAL_USER
 WorkingDirectory=$INSTALL_DIR
 Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/src/main.py
+ExecStart=$INSTALL_DIR/venv/bin/python3 $INSTALL_DIR/src/main.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -115,9 +115,6 @@ SyslogIdentifier=proxyox
 # Security settings
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=$INSTALL_DIR
 
 [Install]
 WantedBy=multi-user.target
@@ -126,7 +123,9 @@ EOF
 # Set proper permissions
 echo "🔒 Setting permissions..."
 chown -R $REAL_USER:$REAL_USER $INSTALL_DIR
-chmod +x src/main.py
+chmod 755 $INSTALL_DIR/src
+chmod 644 $INSTALL_DIR/src/*.py
+chmod 644 $INSTALL_DIR/config.yaml
 
 # Reload systemd
 echo "🔄 Reloading systemd..."
