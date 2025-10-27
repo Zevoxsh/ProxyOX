@@ -100,7 +100,28 @@ fi
 echo "📚 Installing Python packages..."
 source venv/bin/activate
 pip install --upgrade pip
-pip install aiohttp pyyaml structlog
+pip install -r requirements.txt
+
+# Create .env file if it doesn't exist
+if [ ! -f "$INSTALL_DIR/.env" ]; then
+    echo "🔐 Creating .env configuration file..."
+    cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
+    
+    # Generate random password
+    RANDOM_PASSWORD=$(openssl rand -base64 12 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 12 | head -n 1)
+    
+    # Update .env with random password
+    sed -i "s/DASHBOARD_PASSWORD=changeme/DASHBOARD_PASSWORD=$RANDOM_PASSWORD/" "$INSTALL_DIR/.env"
+    
+    # Store credentials for later display
+    DASHBOARD_USER="proxyox"
+    DASHBOARD_PASS="$RANDOM_PASSWORD"
+else
+    echo "ℹ️  .env file already exists, keeping existing configuration"
+    # Read existing credentials
+    DASHBOARD_USER=$(grep "DASHBOARD_USERNAME=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
+    DASHBOARD_PASS=$(grep "DASHBOARD_PASSWORD=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
+fi
 
 # Create systemd service file
 echo "⚙️  Creating systemd service..."
@@ -137,6 +158,7 @@ chown -R $REAL_USER:$REAL_USER $INSTALL_DIR
 chmod 755 $INSTALL_DIR/src
 chmod 644 $INSTALL_DIR/src/*.py
 chmod 644 $INSTALL_DIR/config.yaml
+chmod 600 $INSTALL_DIR/.env  # Secure .env file
 
 # Reload systemd
 echo "🔄 Reloading systemd..."
@@ -151,28 +173,21 @@ echo "==================================="
 echo "   ✅ Installation Complete!"
 echo "==================================="
 echo ""
+echo "🔐 Dashboard Credentials:"
+echo "   URL:      http://your-server:8080"
+echo "   Username: $DASHBOARD_USER"
+echo "   Password: $DASHBOARD_PASS"
+echo ""
+echo "⚠️  IMPORTANT: Change your password in /etc/proxyox/.env"
+echo "   Then restart: sudo systemctl restart proxyox"
+echo ""
 echo "Available commands:"
 echo "  sudo systemctl start proxyox      - Start ProxyOX"
 echo "  sudo systemctl stop proxyox       - Stop ProxyOX"
 echo "  sudo systemctl restart proxyox    - Restart ProxyOX"
 echo "  sudo systemctl status proxyox     - Check status"
 echo "  sudo journalctl -u proxyox -f     - View logs"
-
-# Start the service and show status/logs
-if command -v systemctl >/dev/null 2>&1; then
-    echo "🚀 Starting proxyox service..."
-    if systemctl start proxyox; then
-        sleep 1
-        echo "✅ proxyox started. Showing status and recent logs:"
-        systemctl --no-pager status proxyox -n 20
-        echo ""
-        echo "📝 Recent logs (last 100 lines):"
-        journalctl -u proxyox -n 100 --no-pager
-    else
-        echo "❌ Failed to start proxyox. Showing recent journal entries for debugging:"
-        journalctl -u proxyox -n 200 --no-pager
-        exit 1
-    fi
-else
-    echo "⚠️  systemctl not found. Please start the service manually."
-fi
+echo ""
+echo "To start ProxyOX now, run:"
+echo "  sudo systemctl start proxyox"
+echo ""

@@ -4,19 +4,27 @@ import structlog
 import asyncio
 import mimetypes
 import time
+import base64
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 
 logger = structlog.get_logger()
+
+# Load environment variables
+project_root = Path(__file__).parent.parent.parent
+load_dotenv(project_root / ".env")
+
+# Get credentials from environment
+DASHBOARD_USERNAME = os.getenv("DASHBOARD_USERNAME", "proxyox")
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "changeme")
 
 # Configuration des types MIME
 mimetypes.init()
 mimetypes.add_type('application/javascript', '.js')
 mimetypes.add_type('text/css', '.css')
 mimetypes.add_type('application/json', '.json')
-
-# Get project root directory
-project_root = Path(__file__).parent.parent.parent
 
 class Dashboard:
     def __init__(self, proxy_manager):
@@ -35,8 +43,40 @@ class Dashboard:
 
     def create_app(self):
         return self.app
+    
+    def check_auth(self, request):
+        """Check HTTP Basic Authentication"""
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return False
+        
+        try:
+            scheme, credentials = auth_header.split(' ', 1)
+            if scheme.lower() != 'basic':
+                return False
+            
+            decoded = base64.b64decode(credentials).decode('utf-8')
+            username, password = decoded.split(':', 1)
+            
+            return username == DASHBOARD_USERNAME and password == DASHBOARD_PASSWORD
+        except Exception:
+            return False
+    
+    def require_auth(self):
+        """Return 401 response requiring authentication"""
+        return web.Response(
+            status=401,
+            text='Authentication required',
+            headers={
+                'WWW-Authenticate': 'Basic realm="ProxyOX Dashboard"'
+            }
+        )
 
     async def handle_index(self, request):
+        # Check authentication
+        if not self.check_auth(request):
+            return self.require_auth()
+        
         index_path = project_root / "src" / "dashboard" / "static" / "index.html"
         with open(index_path, "r", encoding="utf-8") as f:
             html = f.read()
@@ -45,6 +85,10 @@ class Dashboard:
         return web.Response(text=html, content_type="text/html")
 
     async def websocket_handler(self, request):
+        # Check authentication before WebSocket upgrade
+        if not self.check_auth(request):
+            return self.require_auth()
+        
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         logger.info("Client connected to dashboard")

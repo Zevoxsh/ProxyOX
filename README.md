@@ -62,13 +62,40 @@ git clone https://github.com/Zevoxsh/proxyox.git && cd proxyox && sudo bash inst
 # Install Python dependencies
 python3 -m venv venv
 source venv/bin/activate
-pip install aiohttp pyyaml structlog
+pip install -r requirements.txt
+
+# Create .env file from example
+cp .env.example .env
+
+# Edit credentials (optional)
+nano .env
 
 # Run manually
 python src/main.py
 ```
 
 ## Configuration
+
+### Authentication
+
+ProxyOX uses HTTP Basic Authentication to secure the dashboard. Credentials are stored in the `.env` file:
+
+```bash
+# Edit /etc/proxyox/.env
+DASHBOARD_USERNAME=proxyox
+DASHBOARD_PASSWORD=your_secure_password_here
+```
+
+After changing credentials, restart the service:
+```bash
+sudo systemctl restart proxyox
+```
+
+**Default credentials** (automatically changed to a random password during installation):
+- Username: `proxyox`
+- Password: Displayed at the end of installation
+
+### Proxy Configuration
 
 Edit `config.yaml` to configure your proxies:
 
