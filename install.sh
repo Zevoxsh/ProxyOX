@@ -31,7 +31,7 @@ fi
 # Check if we're running from a downloaded script (not in the repo)
 if [ ! -f "config.yaml" ]; then
     echo "📥 ProxyOX not found locally. Cloning from GitHub..."
-    INSTALL_DIR="$REAL_HOME/proxyox"
+    INSTALL_DIR="/etc/proxyox"
     
     # Install git if not present
     if ! command -v git &> /dev/null; then
@@ -49,14 +49,25 @@ if [ ! -f "config.yaml" ]; then
     if [ -d "$INSTALL_DIR" ]; then
         echo "⚠️  Directory $INSTALL_DIR already exists. Updating..."
         cd "$INSTALL_DIR"
-        sudo -u $REAL_USER git pull
+        git pull
     else
-        sudo -u $REAL_USER git clone https://github.com/YOUR_USERNAME/proxyox.git "$INSTALL_DIR"
+        git clone https://github.com/Zevoxsh/ProxyOX.git "$INSTALL_DIR"
         cd "$INSTALL_DIR"
     fi
 else
-    # Running from local directory
-    INSTALL_DIR=$(pwd)
+    # Running from local directory - move to /etc/proxyox
+    INSTALL_DIR="/etc/proxyox"
+    CURRENT_DIR=$(pwd)
+    
+    if [ "$CURRENT_DIR" != "$INSTALL_DIR" ]; then
+        echo "📦 Moving ProxyOX to $INSTALL_DIR..."
+        if [ -d "$INSTALL_DIR" ]; then
+            echo "⚠️  Backing up existing installation..."
+            mv "$INSTALL_DIR" "${INSTALL_DIR}.backup.$(date +%s)"
+        fi
+        cp -r "$CURRENT_DIR" "$INSTALL_DIR"
+        cd "$INSTALL_DIR"
+    fi
 fi
 
 echo "📁 Installation directory: $INSTALL_DIR"
