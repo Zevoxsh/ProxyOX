@@ -1,4 +1,4 @@
-from aiohttp import web
+from aiohttp import web, ClientSession
 import asyncio
 import logging
 import time
@@ -46,7 +46,7 @@ class HttpProxy:
         try:
             data = await request.read()
             self.bytes_in += len(data)
-            async with web.ClientSession() as session:
+            async with ClientSession() as session:
                 async with session.request(request.method, f"http://{self.target_host}:{self.target_port}{request.rel_url}", data=data, headers=request.headers) as resp:
                     resp_data = await resp.read()
                     self.bytes_out += len(resp_data)

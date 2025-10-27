@@ -16,7 +16,7 @@ frontends:
     default_backend: udp-server
 
   - name: http-fe
-    bind: 127.0.0.1:8080
+    bind: 127.0.0.1:8081
     mode: http
     default_backend: http-server
 

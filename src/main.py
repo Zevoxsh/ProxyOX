@@ -6,10 +6,14 @@ import sys
 import os
 from pathlib import Path
 from aiohttp import web
+from dotenv import load_dotenv
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+# Load environment variables
+load_dotenv(project_root / ".env")
 
 from src.proxy.manager import ProxyManager
 from src.dashboard.app import Dashboard
@@ -46,15 +50,20 @@ async def main():
     print("✅ All proxies running. Starting dashboard...")
 
     # --- Lancer le dashboard web ---
+    # Get dashboard settings from .env
+    dashboard_host = os.getenv("DASHBOARD_HOST", "0.0.0.0")
+    dashboard_port = int(os.getenv("DASHBOARD_PORT", "8080"))
+    
     dashboard = Dashboard(manager)
     app = dashboard.create_app()
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 9090)
+    site = web.TCPSite(runner, dashboard_host, dashboard_port)
     await site.start()
 
-    print("🌐 Dashboard running on http://127.0.0.1:9090")
+    print(f"🌐 Dashboard running on http://{dashboard_host}:{dashboard_port}")
+    print(f"🔐 Login required - check /etc/proxyox/.env for credentials")
 
     try:
         while True:

@@ -174,7 +174,18 @@ echo "   ✅ Installation Complete!"
 echo "==================================="
 echo ""
 echo "🔐 Dashboard Credentials:"
-echo "   URL:      http://your-server:8080"
+# Determine host IP (try hostname -I, then ip route)
+HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+if [ -z "$HOST_IP" ]; then
+    HOST_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}' | head -n1)
+fi
+[ -z "$HOST_IP" ] && HOST_IP="localhost"
+
+# Determine port from .env (common keys) or default to 4173
+PORT=$(grep -E '^(PORT|DASHBOARD_PORT|HTTP_PORT|APP_PORT)=' "$INSTALL_DIR/.env" 2>/dev/null | head -n1 | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+PORT=${PORT:-4173}
+
+echo "   URL:      http://$HOST_IP:$PORT"
 echo "   Username: $DASHBOARD_USER"
 echo "   Password: $DASHBOARD_PASS"
 echo ""

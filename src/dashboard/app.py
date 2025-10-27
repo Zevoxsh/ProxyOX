@@ -14,11 +14,20 @@ logger = structlog.get_logger()
 
 # Load environment variables
 project_root = Path(__file__).parent.parent.parent
-load_dotenv(project_root / ".env")
+env_path = project_root / ".env"
+
+# Load .env file
+load_dotenv(env_path)
 
 # Get credentials from environment
 DASHBOARD_USERNAME = os.getenv("DASHBOARD_USERNAME", "proxyox")
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "changeme")
+
+# Log authentication settings (without showing password)
+logger.info(f"Dashboard authentication configured", 
+            username=DASHBOARD_USERNAME, 
+            env_file_exists=env_path.exists(),
+            password_set=bool(DASHBOARD_PASSWORD and DASHBOARD_PASSWORD != "changeme"))
 
 # Configuration des types MIME
 mimetypes.init()
