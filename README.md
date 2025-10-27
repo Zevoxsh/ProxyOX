@@ -21,20 +21,20 @@ ProxyOX is a professional multi-protocol proxy manager with a beautiful real-tim
 Install ProxyOX directly from GitHub in one command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/proxyox/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Zevoxsh/proxyox/main/install.sh | sudo bash
 ```
 
 Or with wget:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/YOUR_USERNAME/proxyox/main/install.sh | sudo bash
+wget -qO- https://raw.githubusercontent.com/Zevoxsh/proxyox/main/install.sh | sudo bash
 ```
 
 ### Manual Installation from GitHub
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/proxyox.git
+git clone https://github.com/Zevoxsh/proxyox.git
 cd proxyox
 
 # Run installation script
@@ -53,7 +53,7 @@ sudo journalctl -u proxyox -f
 ### Alternative: Clone and Install in One Line
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/proxyox.git && cd proxyox && sudo bash install.sh
+git clone https://github.com/Zevoxsh/proxyox.git && cd proxyox && sudo bash install.sh
 ```
 
 ### Manual Installation
