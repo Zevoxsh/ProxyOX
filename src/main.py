@@ -2,7 +2,15 @@ import asyncio
 import yaml
 import structlog
 import logging
+import sys
+import os
+from pathlib import Path
 from aiohttp import web
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from src.proxy.manager import ProxyManager
 from src.dashboard.app import Dashboard
 
@@ -15,8 +23,9 @@ structlog.configure(
 
 # --- Main entrypoint ---
 async def main():
-    # Charger la config
-    with open("config.yaml", "r") as f:
+    # Charger la config (use absolute path)
+    config_path = project_root / "config.yaml"
+    with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
     manager = ProxyManager()

@@ -4,6 +4,7 @@ import structlog
 import asyncio
 import mimetypes
 import time
+from pathlib import Path
 
 
 logger = structlog.get_logger()
@@ -14,20 +15,30 @@ mimetypes.add_type('application/javascript', '.js')
 mimetypes.add_type('text/css', '.css')
 mimetypes.add_type('application/json', '.json')
 
+# Get project root directory
+project_root = Path(__file__).parent.parent.parent
+
 class Dashboard:
     def __init__(self, proxy_manager):
         self.proxy_manager = proxy_manager
         self.app = web.Application()
         self.app.router.add_get("/", self.handle_index)
         self.app.router.add_get("/ws", self.websocket_handler)
-        self.app.router.add_static("/static/", path="src/dashboard/static", name="static")
-        self.app.router.add_static("/assets/", path="src/dashboard/static/assets", name="assets")
+        
+        # Use absolute paths
+        static_path = project_root / "src" / "dashboard" / "static"
+        assets_path = static_path / "assets"
+        
+        self.app.router.add_static("/static/", path=str(static_path), name="static")
+        if assets_path.exists():
+            self.app.router.add_static("/assets/", path=str(assets_path), name="assets")
 
     def create_app(self):
         return self.app
 
     async def handle_index(self, request):
-        with open("src/dashboard/static/index.html", "r", encoding="utf-8") as f:
+        index_path = project_root / "src" / "dashboard" / "static" / "index.html"
+        with open(index_path, "r", encoding="utf-8") as f:
             html = f.read()
         # Use new JS file name to bypass cache
         html = html.replace('dashboard.js?v=62', 'dashboard-v2.js')
