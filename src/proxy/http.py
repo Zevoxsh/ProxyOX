@@ -1,17 +1,19 @@
-from aiohttp import web, ClientSession
+from aiohttp import web, ClientSession, TCPConnector
 import asyncio
 import logging
 import time
+import ssl
 from collections import deque
 
 logger = logging.getLogger("http_proxy")
 
 class HttpProxy:
-    def __init__(self, listen_host, listen_port, target_host, target_port):
+    def __init__(self, listen_host, listen_port, target_host, target_port, backend_https=False):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
         self.target_port = target_port
+        self.backend_https = backend_https  # Support HTTPS vers backend
         self.runner = None
         self.bytes_in = 0
         self.bytes_out = 0
@@ -46,8 +48,21 @@ class HttpProxy:
         try:
             data = await request.read()
             self.bytes_in += len(data)
-            async with ClientSession() as session:
-                async with session.request(request.method, f"http://{self.target_host}:{self.target_port}{request.rel_url}", data=data, headers=request.headers) as resp:
+            
+            # Construire l'URL du backend (HTTP ou HTTPS)
+            protocol = "https" if self.backend_https else "http"
+            backend_url = f"{protocol}://{self.target_host}:{self.target_port}{request.rel_url}"
+            
+            # Créer une session avec SSL désactivé pour les certificats auto-signés
+            connector = None
+            if self.backend_https:
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                connector = TCPConnector(ssl=ssl_context)
+            
+            async with ClientSession(connector=connector) as session:
+                async with session.request(request.method, backend_url, data=data, headers=request.headers) as resp:
                     resp_data = await resp.read()
                     self.bytes_out += len(resp_data)
                     

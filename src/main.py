@@ -41,9 +41,12 @@ async def main():
         listen_port = int(listen_port)
 
         backend_name = fe["default_backend"]
-        server = next(s for s in config.get("backends", []) if s["name"] == backend_name)
-        target_host, target_port = server["server"].split(":")
+        backend = next(s for s in config.get("backends", []) if s["name"] == backend_name)
+        target_host, target_port = backend["server"].split(":")
         target_port = int(target_port)
+        
+        # Lire si le backend utilise HTTPS
+        backend_https = backend.get("https", False)
 
         # Support pour le mode TLS si nécessaire
         use_tls = fe.get("tls", False)
@@ -51,11 +54,11 @@ async def main():
         keyfile = fe.get("keyfile")
         
         # Support pour backend HTTPS (nouveau!)
-        backend_ssl = fe.get("backend_ssl", False)
+        backend_ssl = fe.get("backend_ssl", False) or backend_https
 
         try:
-            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl)
-            backend_protocol = "HTTPS" if backend_ssl else "HTTP"
+            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl, backend_https)
+            backend_protocol = "HTTPS" if (backend_ssl or backend_https) else "HTTP"
             print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port} ({backend_protocol})")
         except Exception as e:
             print(f"❌ FAILED to start {mode.upper()} proxy on {listen_host}:{listen_port}: {e}")

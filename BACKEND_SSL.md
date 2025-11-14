@@ -1,64 +1,85 @@
-# Backend SSL Support
+# Backend HTTPS Support
 
-## Problème résolu
+## ✅ Solution : Conversion HTTP → HTTPS automatique
 
-Votre backend nginx écoute en **HTTPS** (port 9443), mais ProxyOX lui envoyait du **HTTP**.
-
-**Erreur avant :**
-```
-400 Bad Request
-The plain HTTP request was sent to HTTPS port
-```
-
-## Solution
-
-Ajoutez `backend_ssl: true` dans votre configuration pour que ProxyOX se connecte en HTTPS au backend.
+ProxyOX convertit maintenant automatiquement les requêtes HTTP en HTTPS vers votre backend !
 
 ## Configuration
 
+### Dans `config.yaml` :
+
 ```yaml
 frontends:
+  # Port 80 - Reçoit HTTP, envoie HTTPS
+  - name: http-redirect
+    bind: 0.0.0.0:80
+    mode: http  # ← Mode HTTP
+    default_backend: https-server
+
+  # Port 443 - Reçoit HTTP, envoie HTTPS
   - name: tcp-fe
     bind: 0.0.0.0:443
-    mode: tcp
-    default_backend: tcp-server
-    backend_ssl: true  # ← Active la connexion HTTPS vers le backend
+    mode: http  # ← Mode HTTP
+    default_backend: https-server
 
 backends:
-  - name: tcp-server
-    server: 10.10.0.201:9443  # Backend en HTTPS
+  - name: https-server
+    server: 82.64.136.176:443
+    https: true  # ← Le backend utilise HTTPS
 ```
 
-## Flux complet
+## Comment ça marche ?
 
-### Cloudflare Flexible + Backend HTTPS
+### Flux de données :
+
 ```
-Visiteur → Cloudflare → ProxyOX → Backend
-HTTPS     HTTP         HTTPS     HTTPS
-        (port 80/443) (SSL!)   (port 9443)
+Cloudflare → ProxyOX (port 80/443) → Backend nginx
+   HTTP         HTTP                    HTTPS
+             (convertit en HTTPS)    (port 443)
 ```
 
-**Configuration:**
+### Le proxy HTTP :
+1. **Reçoit** une requête HTTP de Cloudflare
+2. **Convertit** automatiquement en HTTPS
+3. **Envoie** vers le backend avec SSL
+4. **Accepte** les certificats auto-signés
+
+## Paramètres
+
+| Paramètre | Emplacement | Description |
+|-----------|-------------|-------------|
+| `mode: http` | Frontend | Utilise le proxy HTTP (intelligent) |
+| `https: true` | Backend | Le backend utilise HTTPS |
+
+## Exemple complet
+
 ```yaml
+global:
+  log-level: info
+  timeout: 300
+  max-connections: 100
+
 frontends:
-  - bind: 0.0.0.0:443
-    mode: tcp
-    backend_ssl: true  # ← ProxyOX → Backend en HTTPS
-```
+  - name: http-80
+    bind: 0.0.0.0:80
+    mode: http
+    default_backend: my-backend
 
-### Cloudflare Full + Backend HTTPS
-```
-Visiteur → Cloudflare → ProxyOX → Backend
-HTTPS     HTTPS        HTTPS     HTTPS
-                    (décrypte et re-crypte)
-```
+  - name: http-443  
+    bind: 0.0.0.0:443
+    mode: http
+    default_backend: my-backend
 
-**Pas encore supporté** - utilisez Cloudflare Flexible pour l'instant.
+backends:
+  - name: my-backend
+    server: 82.64.136.176:443
+    https: true  # Backend en HTTPS
+```
 
 ## Test
 
 ```bash
-# Sur votre serveur
+# Sur le serveur
 cd /etc/proxyox
 systemctl restart proxyox
 journalctl -u proxyox -f
@@ -66,17 +87,15 @@ journalctl -u proxyox -f
 
 **Logs attendus :**
 ```
-✅ TCP proxy: 0.0.0.0:80 -> 10.10.0.201:9443 (HTTPS)
-✅ TCP proxy: 0.0.0.0:443 -> 10.10.0.201:9443 (HTTPS)
-[TCP] Connecting with SSL to backend
-[TCP] Connected to upstream 10.10.0.201:9443 (SSL)
+✅ HTTP proxy: 0.0.0.0:80 -> 82.64.136.176:443 (HTTPS)
+✅ HTTP proxy: 0.0.0.0:443 -> 82.64.136.176:443 (HTTPS)
+HTTP proxy started: 0.0.0.0:80 -> 82.64.136.176:443
 ```
 
-## Paramètres
+## Avantages
 
-| Paramètre | Description | Valeur |
-|-----------|-------------|--------|
-| `backend_ssl` | Connexion SSL vers le backend | `true` / `false` |
-| `tls` | Écoute en SSL côté client (pas utilisé avec Cloudflare) | `true` / `false` |
-
-**Note :** Les certificats auto-signés du backend sont acceptés automatiquement.
+- ✅ Conversion automatique HTTP → HTTPS
+- ✅ Accepte les certificats auto-signés
+- ✅ Parse correctement les requêtes HTTP
+- ✅ Plus d'erreur "plain HTTP request was sent to HTTPS port"
+- ✅ Compatible avec Cloudflare Flexible et Full
