@@ -9,17 +9,23 @@ frontends:
     bind: 0.0.0.0:443
     mode: tcp
     default_backend: tcp-server
-    # Mode flexible Cloudflare activé!
-    # Le proxy accepte les connexions HTTPS (avec certificat auto-signé)
-    # et transmet en HTTP simple vers le backend.
-    # Parfait pour Cloudflare Flexible SSL:
-    #   - Cloudflare <-> ProxyOX : HTTPS (certificat auto-signé OK car Cloudflare accepte)
-    #   - ProxyOX <-> Backend : HTTP simple
-    flexible: true
-    # Optionnel : spécifier vos propres certificats
+    # 🔥 MODE AUTO - Détection automatique HTTP/HTTPS (Recommandé!)
+    # Le proxy détecte automatiquement si Cloudflare envoie HTTP ou HTTPS
+    # Fonctionne avec Cloudflare Flexible ET Full sans rien changer!
+    auto: true  # ← Détection automatique activée
+    
+    # OU configuration manuelle:
+    # Pour Cloudflare FLEXIBLE SSL (HTTP sur port 443):
+    #   auto: false
+    #   flexible: false
+    #
+    # Pour Cloudflare FULL SSL (HTTPS sur port 443):
+    #   auto: false
+    #   flexible: true
+    
+    # Optionnel : certificats personnalisés (pour HTTPS)
     # certfile: /path/to/cert.pem
     # keyfile: /path/to/key.pem
-    # Si non spécifié, un certificat auto-signé sera généré automatiquement
 
   - name: udp-fe
     bind: 127.0.0.1:9001
