@@ -62,11 +62,14 @@ class TCPProxy:
         
         conn_start = time.time()
         client_addr = client_writer.get_extra_info('peername')
+        logger.info(f"[TCP] New connection from {client_addr} (total: {self.total_connections}, active: {self.active_connections})")
         
         try:
+            logger.info(f"[TCP] Connecting to upstream {self.target_host}:{self.target_port} for client {client_addr}")
             upstream_reader, upstream_writer = await asyncio.open_connection(self.target_host, self.target_port)
+            logger.info(f"[TCP] Connected to upstream {self.target_host}:{self.target_port}")
         except Exception as e:
-            logger.error(f"Cannot connect upstream: {e}")
+            logger.error(f"❌ Cannot connect upstream {self.target_host}:{self.target_port}: {e}")
             self.failed_connections += 1
             self.last_error = str(e)
             self.last_error_time = time.time()
@@ -134,17 +137,25 @@ class TCPProxy:
                 logger.info("TLS enabled with self-signed certificate")
                 ssl_context = self._create_self_signed_context()
         
-        self.server = await asyncio.start_server(
-            self.handle_client, 
-            self.listen_host, 
-            self.listen_port,
-            ssl=ssl_context
-        )
-        self.start_time = time.time()
-        self.status = "running"
-        asyncio.create_task(self._update_bytes_history())
-        tls_status = " (TLS)" if self.use_tls else ""
-        logger.info(f"TCP proxy{tls_status} started: {self.listen_host}:{self.listen_port} -> {self.target_host}:{self.target_port}")
+        try:
+            self.server = await asyncio.start_server(
+                self.handle_client, 
+                self.listen_host, 
+                self.listen_port,
+                ssl=ssl_context
+            )
+            self.start_time = time.time()
+            self.status = "running"
+            asyncio.create_task(self._update_bytes_history())
+            tls_status = " (TLS)" if self.use_tls else ""
+            logger.info(f"✅ TCP proxy{tls_status} STARTED and LISTENING on {self.listen_host}:{self.listen_port} -> {self.target_host}:{self.target_port}")
+            logger.info(f"[TCP] Server is ready to accept connections on port {self.listen_port}")
+        except Exception as e:
+            logger.error(f"❌ FAILED to start TCP proxy on {self.listen_host}:{self.listen_port}: {e}")
+            self.status = "failed"
+            self.last_error = str(e)
+            self.last_error_time = time.time()
+            raise
     
     def _create_self_signed_context(self):
         """Crée un contexte SSL avec certificat auto-signé pour le développement"""

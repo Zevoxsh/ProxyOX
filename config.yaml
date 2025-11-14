@@ -6,7 +6,7 @@ global:
 
 frontends:
   - name: tcp-fe
-    bind: 0.0.0.0:9000
+    bind: 0.0.0.0:443
     mode: tcp
     default_backend: tcp-server
     # Mode flexible Cloudflare : TLS côté client, TCP non chiffré vers backend
