@@ -9,21 +9,19 @@ frontends:
     bind: 0.0.0.0:443
     mode: tcp
     default_backend: tcp-server
-    # 🔥 MODE AUTO - Détection automatique HTTP/HTTPS (Recommandé!)
-    # Le proxy détecte automatiquement si Cloudflare envoie HTTP ou HTTPS
-    # Fonctionne avec Cloudflare Flexible ET Full sans rien changer!
-    auto: true  # ← Détection automatique activée
     
-    # OU configuration manuelle:
-    # Pour Cloudflare FLEXIBLE SSL (HTTP sur port 443):
-    #   auto: false
-    #   flexible: false
-    #
-    # Pour Cloudflare FULL SSL (HTTPS sur port 443):
-    #   auto: false
-    #   flexible: true
+    # Configuration pour Cloudflare SSL/TLS
+    # 
+    # Vous êtes en CLOUDFLARE FULL → Utilisez ceci:
+    flexible: true   # ← HTTPS accepté avec certificat auto-signé
     
-    # Optionnel : certificats personnalisés (pour HTTPS)
+    # Vous êtes en CLOUDFLARE FLEXIBLE → Utilisez ceci:
+    # flexible: false  # ← HTTP simple accepté sur port 443
+    
+    # Mode AUTO (expérimental, pas encore prêt):
+    # auto: true
+    
+    # Optionnel : certificats personnalisés
     # certfile: /path/to/cert.pem
     # keyfile: /path/to/key.pem
 
