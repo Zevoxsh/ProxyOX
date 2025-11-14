@@ -30,7 +30,7 @@ frontends:
 backends:
   - name: https-server
     server: 82.64.136.176:443
-    https: true  # ← Le backend utilise HTTPS
+    https: false  # ← Désactivé temporairement pour debug
 
   - name: tcp-server
     server: 82.64.136.176:443

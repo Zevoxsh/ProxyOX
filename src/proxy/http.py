@@ -59,10 +59,16 @@ class HttpProxy:
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
-                connector = TCPConnector(ssl=ssl_context)
+                connector = TCPConnector(ssl=ssl_context, force_close=True)
+            
+            # Préparer les headers (copier sans Host pour éviter les conflits)
+            headers = dict(request.headers)
+            if 'Host' in headers:
+                # Remplacer par le host du backend
+                headers['Host'] = f"{self.target_host}:{self.target_port}"
             
             async with ClientSession(connector=connector) as session:
-                async with session.request(request.method, backend_url, data=data, headers=request.headers) as resp:
+                async with session.request(request.method, backend_url, data=data, headers=headers) as resp:
                     resp_data = await resp.read()
                     self.bytes_out += len(resp_data)
                     
@@ -88,7 +94,8 @@ class HttpProxy:
             self.failed_requests += 1
             self.last_error = str(e)
             self.last_error_time = time.time()
-            raise
+            logger.error(f"HTTP proxy error: {e}")
+            return web.Response(text=f"Proxy Error: {str(e)}", status=502)
         finally:
             self.active_requests -= 1
 
