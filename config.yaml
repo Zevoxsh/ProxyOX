@@ -5,17 +5,19 @@ global:
   max-connections: 100
 
 frontends:
-  # Port 80 - Redirige vers HTTPS
+  # Port 80 - HTTP relay vers backend HTTPS
   - name: http-redirect
     bind: 0.0.0.0:80
     mode: tcp
     default_backend: tcp-server
+    backend_ssl: true  # ← Se connecte en HTTPS au backend
 
-  # Port 443 - Proxy TCP normal
+  # Port 443 - TCP relay vers backend HTTPS
   - name: tcp-fe
     bind: 0.0.0.0:443
     mode: tcp
     default_backend: tcp-server
+    backend_ssl: true  # ← Se connecte en HTTPS au backend
   
   - name: udp-fe
     bind: 127.0.0.1:9001

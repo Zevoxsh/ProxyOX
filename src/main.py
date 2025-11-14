@@ -49,10 +49,14 @@ async def main():
         use_tls = fe.get("tls", False)
         certfile = fe.get("certfile")
         keyfile = fe.get("keyfile")
+        
+        # Support pour backend HTTPS (nouveau!)
+        backend_ssl = fe.get("backend_ssl", False)
 
         try:
-            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
-            print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port}")
+            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl)
+            backend_protocol = "HTTPS" if backend_ssl else "HTTP"
+            print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port} ({backend_protocol})")
         except Exception as e:
             print(f"❌ FAILED to start {mode.upper()} proxy on {listen_host}:{listen_port}: {e}")
             import traceback

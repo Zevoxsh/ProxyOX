@@ -8,12 +8,13 @@ from pathlib import Path
 logger = logging.getLogger("tcp_proxy")
 
 class TCPProxy:
-    def __init__(self, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None):
+    def __init__(self, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
         self.target_port = target_port
-        self.use_tls = use_tls
+        self.use_tls = use_tls  # SSL pour écouter (côté client)
+        self.backend_ssl = backend_ssl  # SSL pour se connecter au backend
         self.certfile = certfile
         self.keyfile = keyfile
         self.server = None
@@ -66,8 +67,21 @@ class TCPProxy:
         
         try:
             logger.info(f"[TCP] Connecting to upstream {self.target_host}:{self.target_port} for client {client_addr}")
-            upstream_reader, upstream_writer = await asyncio.open_connection(self.target_host, self.target_port)
-            logger.info(f"[TCP] Connected to upstream {self.target_host}:{self.target_port}")
+            
+            # Créer un contexte SSL si le backend utilise HTTPS
+            ssl_context = None
+            if self.backend_ssl:
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE  # Accepte les certificats auto-signés
+                logger.info(f"[TCP] Connecting with SSL to backend")
+            
+            upstream_reader, upstream_writer = await asyncio.open_connection(
+                self.target_host, 
+                self.target_port,
+                ssl=ssl_context
+            )
+            logger.info(f"[TCP] Connected to upstream {self.target_host}:{self.target_port} {'(SSL)' if self.backend_ssl else ''}")
         except Exception as e:
             logger.error(f"❌ Cannot connect upstream {self.target_host}:{self.target_port}: {e}")
             self.failed_connections += 1

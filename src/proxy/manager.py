@@ -12,10 +12,10 @@ class ProxyManager:
         self.udp_proxies = {}
         self.http_proxies = {}
 
-    async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None):
+    async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False):
         proxy_id = f"{proto}_{listen_host}_{listen_port}"
         if proto == "tcp":
-            await self.register_tcp(proxy_id, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
+            await self.register_tcp(proxy_id, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl)
         elif proto == "udp":
             await self.register_udp(proxy_id, listen_host, listen_port, target_host, target_port)
         elif proto == "http":
@@ -23,11 +23,11 @@ class ProxyManager:
         else:
             logger.error("Unknown proxy type", proto=proto)
 
-    async def register_tcp(self, proxy_id, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None):
+    async def register_tcp(self, proxy_id, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False):
         if proxy_id in self.tcp_proxies:
             return
         try:
-            proxy = TCPProxy(listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
+            proxy = TCPProxy(listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl)
             await proxy.start()
             self.tcp_proxies[proxy_id] = proxy
         except Exception as e:
