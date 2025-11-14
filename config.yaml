@@ -5,17 +5,19 @@ global:
   max-connections: 100
 
 frontends:
-  # Port 80 - HTTP proxy vers backend HTTPS
+  # Port 80 - TCP avec SSL vers backend (convertit HTTP → HTTPS)
   - name: http-redirect
     bind: 0.0.0.0:80
-    mode: http  # ← Mode HTTP au lieu de TCP
-    default_backend: https-server  # ← Nouveau backend HTTPS
+    mode: tcp
+    default_backend: tcp-https-server
+    backend_ssl: true  # ← Active SSL vers backend (HTTP → HTTPS)
 
-  # Port 443 - HTTP proxy vers backend HTTPS
+  # Port 443 - TCP relay simple (HTTPS → HTTPS passthrough)
   - name: tcp-fe
     bind: 0.0.0.0:443
-    mode: http  # ← Mode HTTP au lieu de TCP
-    default_backend: https-server  # ← Nouveau backend HTTPS
+    mode: tcp
+    default_backend: tcp-https-server
+    backend_ssl: false  # ← Pas de SSL, juste relay (HTTPS → HTTPS)
   
   - name: udp-fe
     bind: 127.0.0.1:9001
@@ -28,12 +30,8 @@ frontends:
     default_backend: http-server
 
 backends:
-  - name: https-server
-    server: 82.64.136.176:443
-    https: false  # ← Désactivé temporairement pour debug
-
-  - name: tcp-server
-    server: 82.64.136.176:443
+  - name: tcp-https-server
+    server: 10.10.0.201:443
 
   - name: udp-server
     server: 10.10.0.201:9443
