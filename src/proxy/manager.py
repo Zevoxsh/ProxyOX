@@ -3,8 +3,6 @@ import time
 from .tcp import TCPProxy
 from .udp import UDPProxy
 from .http import HttpProxy
-from .flexible import FlexibleProxy
-from .smart import SmartProxy
 
 logger = structlog.get_logger()
 
@@ -13,21 +11,11 @@ class ProxyManager:
         self.tcp_proxies = {}
         self.udp_proxies = {}
         self.http_proxies = {}
-        self.flexible_proxies = {}
-        self.smart_proxies = {}
 
-    async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, flexible=False, auto_detect=False):
+    async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None):
         proxy_id = f"{proto}_{listen_host}_{listen_port}"
         if proto == "tcp":
-            if auto_detect:
-                # Mode AUTO: détection automatique HTTP/HTTPS
-                await self.register_smart(proxy_id, listen_host, listen_port, target_host, target_port, certfile, keyfile)
-            elif flexible:
-                # Mode flexible: HTTPS avec SSL
-                await self.register_flexible(proxy_id, listen_host, listen_port, target_host, target_port, certfile, keyfile)
-            else:
-                # Mode normal: TCP avec ou sans TLS
-                await self.register_tcp(proxy_id, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
+            await self.register_tcp(proxy_id, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
         elif proto == "udp":
             await self.register_udp(proxy_id, listen_host, listen_port, target_host, target_port)
         elif proto == "http":
@@ -59,28 +47,6 @@ class ProxyManager:
         proxy = HttpProxy(listen_host, listen_port, target_host, target_port)
         await proxy.start()
         self.http_proxies[proxy_id] = proxy
-
-    async def register_flexible(self, proxy_id, listen_host, listen_port, target_host, target_port, certfile=None, keyfile=None):
-        if proxy_id in self.flexible_proxies:
-            return
-        try:
-            proxy = FlexibleProxy(listen_host, listen_port, target_host, target_port, certfile, keyfile)
-            await proxy.start()
-            self.flexible_proxies[proxy_id] = proxy
-        except Exception as e:
-            logger.error(f"Failed to register Flexible proxy {proxy_id}", error=str(e))
-            raise
-
-    async def register_smart(self, proxy_id, listen_host, listen_port, target_host, target_port, certfile=None, keyfile=None):
-        if proxy_id in self.smart_proxies:
-            return
-        try:
-            proxy = SmartProxy(listen_host, listen_port, target_host, target_port, certfile, keyfile)
-            await proxy.start()
-            self.smart_proxies[proxy_id] = proxy
-        except Exception as e:
-            logger.error(f"Failed to register Smart proxy {proxy_id}", error=str(e))
-            raise
 
     def get_stats(self):
         stats = []
@@ -145,50 +111,6 @@ class ProxyManager:
                 "request_history": list(p.request_history)[-10:],  # 10 dernières
                 "total_bytes_transferred": p.total_bytes_transferred,
             })
-        for p in self.flexible_proxies.values():
-            uptime = int(time.time() - p.start_time) if p.start_time else 0
-            stats.append({
-                "protocol": "FLEXIBLE (HTTP/HTTPS Auto-detect)",
-                "listen": f"{p.listen_host}:{p.listen_port}",
-                "target": f"{p.target_host}:{p.target_port}",
-                "bytes_in": p.bytes_in,
-                "bytes_out": p.bytes_out,
-                "active_connections": p.active_connections,
-                "total_connections": p.total_connections,
-                "https_connections": p.https_connections,
-                "http_connections": p.http_connections,
-                "failed_connections": p.failed_connections,
-                "peak_connections": p.peak_connections,
-                "status": p.status,
-                "uptime": uptime,
-                "last_error": p.last_error,
-                "last_error_time": p.last_error_time,
-                "bytes_history": list(p.bytes_history),
-                "connection_history": list(p.connection_history)[-10:],  # 10 dernières
-                "total_bytes_transferred": p.total_bytes_transferred,
-            })
-        for p in self.smart_proxies.values():
-            uptime = int(time.time() - p.start_time) if p.start_time else 0
-            stats.append({
-                "protocol": "SMART (HTTP/HTTPS Auto-detect)",
-                "listen": f"{p.listen_host}:{p.listen_port}",
-                "target": f"{p.target_host}:{p.target_port}",
-                "bytes_in": p.bytes_in,
-                "bytes_out": p.bytes_out,
-                "active_connections": p.active_connections,
-                "total_connections": p.total_connections,
-                "https_connections": p.https_connections,
-                "http_connections": p.http_connections,
-                "failed_connections": p.failed_connections,
-                "peak_connections": p.peak_connections,
-                "status": p.status,
-                "uptime": uptime,
-                "last_error": p.last_error,
-                "last_error_time": p.last_error_time,
-                "bytes_history": list(p.bytes_history),
-                "connection_history": list(p.connection_history)[-10:],
-                "total_bytes_transferred": p.total_bytes_transferred,
-            })
         return stats
 
     async def stop_all(self):
@@ -197,9 +119,5 @@ class ProxyManager:
         for proxy in self.udp_proxies.values():
             await proxy.stop()
         for proxy in self.http_proxies.values():
-            await proxy.stop()
-        for proxy in self.flexible_proxies.values():
-            await proxy.stop()
-        for proxy in self.smart_proxies.values():
             await proxy.stop()
         logger.info("All proxies stopped")

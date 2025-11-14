@@ -5,26 +5,18 @@ global:
   max-connections: 100
 
 frontends:
+  # Port 80 - Redirige vers HTTPS
+  - name: http-redirect
+    bind: 0.0.0.0:80
+    mode: tcp
+    default_backend: tcp-server
+
+  # Port 443 - Proxy TCP normal
   - name: tcp-fe
     bind: 0.0.0.0:443
     mode: tcp
     default_backend: tcp-server
-    
-    # Configuration pour Cloudflare SSL/TLS
-    # 
-    # Vous êtes en CLOUDFLARE FULL → Utilisez ceci:
-    flexible: true   # ← HTTPS accepté avec certificat auto-signé
-    
-    # Vous êtes en CLOUDFLARE FLEXIBLE → Utilisez ceci:
-    # flexible: false  # ← HTTP simple accepté sur port 443
-    
-    # Mode AUTO (expérimental, pas encore prêt):
-    # auto: true
-    
-    # Optionnel : certificats personnalisés
-    # certfile: /path/to/cert.pem
-    # keyfile: /path/to/key.pem
-
+  
   - name: udp-fe
     bind: 127.0.0.1:9001
     mode: udp

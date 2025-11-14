@@ -45,24 +45,14 @@ async def main():
         target_host, target_port = server["server"].split(":")
         target_port = int(target_port)
 
-        # Support pour les différents modes Cloudflare
+        # Support pour le mode TLS si nécessaire
         use_tls = fe.get("tls", False)
-        flexible = fe.get("flexible", False)
-        auto_detect = fe.get("auto", False)  # Nouveau mode AUTO
         certfile = fe.get("certfile")
         keyfile = fe.get("keyfile")
 
         try:
-            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, flexible, auto_detect)
-            
-            if auto_detect:
-                mode_str = "SMART (HTTP/HTTPS Auto-detect)"
-            elif flexible:
-                mode_str = "FLEXIBLE (HTTPS→HTTP)"
-            else:
-                mode_str = mode.upper()
-            
-            print(f"✅ {mode_str} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port}")
+            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
+            print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port}")
         except Exception as e:
             print(f"❌ FAILED to start {mode.upper()} proxy on {listen_host}:{listen_port}: {e}")
             import traceback
