@@ -50,7 +50,14 @@ async def main():
         certfile = fe.get("certfile")
         keyfile = fe.get("keyfile")
 
-        await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
+        try:
+            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
+            print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port}")
+        except Exception as e:
+            print(f"❌ FAILED to start {mode.upper()} proxy on {listen_host}:{listen_port}: {e}")
+            import traceback
+            traceback.print_exc()
+            # Continue avec les autres proxies
 
     print("✅ All proxies running. Starting dashboard...")
 

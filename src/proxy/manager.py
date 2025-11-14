@@ -26,9 +26,13 @@ class ProxyManager:
     async def register_tcp(self, proxy_id, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None):
         if proxy_id in self.tcp_proxies:
             return
-        proxy = TCPProxy(listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
-        await proxy.start()
-        self.tcp_proxies[proxy_id] = proxy
+        try:
+            proxy = TCPProxy(listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
+            await proxy.start()
+            self.tcp_proxies[proxy_id] = proxy
+        except Exception as e:
+            logger.error(f"Failed to register TCP proxy {proxy_id}", error=str(e))
+            raise
 
     async def register_udp(self, proxy_id, listen_host, listen_port, target_host, target_port):
         if proxy_id in self.udp_proxies:
