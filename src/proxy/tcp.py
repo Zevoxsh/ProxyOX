@@ -1,16 +1,21 @@
 import asyncio
 import logging
 import time
+import ssl
 from collections import deque
+from pathlib import Path
 
 logger = logging.getLogger("tcp_proxy")
 
 class TCPProxy:
-    def __init__(self, listen_host, listen_port, target_host, target_port):
+    def __init__(self, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
         self.target_port = target_port
+        self.use_tls = use_tls
+        self.certfile = certfile
+        self.keyfile = keyfile
         self.server = None
         self.bytes_in = 0
         self.bytes_out = 0
@@ -112,11 +117,115 @@ class TCPProxy:
             })
 
     async def start(self):
-        self.server = await asyncio.start_server(self.handle_client, self.listen_host, self.listen_port)
+        ssl_context = None
+        if self.use_tls:
+            # Mode flexible Cloudflare : TLS côté client, TCP vers backend
+            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            
+            if self.certfile and self.keyfile:
+                if Path(self.certfile).exists() and Path(self.keyfile).exists():
+                    ssl_context.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+                    logger.info(f"TLS enabled with cert: {self.certfile}")
+                else:
+                    logger.warning(f"TLS cert/key files not found, using self-signed certificate")
+                    # Générer un certificat auto-signé pour le développement
+                    ssl_context = self._create_self_signed_context()
+            else:
+                logger.info("TLS enabled with self-signed certificate")
+                ssl_context = self._create_self_signed_context()
+        
+        self.server = await asyncio.start_server(
+            self.handle_client, 
+            self.listen_host, 
+            self.listen_port,
+            ssl=ssl_context
+        )
         self.start_time = time.time()
         self.status = "running"
         asyncio.create_task(self._update_bytes_history())
-        logger.info(f"TCP proxy started: {self.listen_host}:{self.listen_port} -> {self.target_host}:{self.target_port}")
+        tls_status = " (TLS)" if self.use_tls else ""
+        logger.info(f"TCP proxy{tls_status} started: {self.listen_host}:{self.listen_port} -> {self.target_host}:{self.target_port}")
+    
+    def _create_self_signed_context(self):
+        """Crée un contexte SSL avec certificat auto-signé pour le développement"""
+        import tempfile
+        import os
+        from datetime import datetime, timedelta
+        try:
+            from cryptography import x509
+            from cryptography.x509.oid import NameOID
+            from cryptography.hazmat.primitives import hashes
+            from cryptography.hazmat.primitives.asymmetric import rsa
+            from cryptography.hazmat.primitives import serialization
+            
+            # Générer une clé privée
+            private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048,
+            )
+            
+            # Créer un certificat auto-signé
+            subject = issuer = x509.Name([
+                x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+                x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "ProxyOX"),
+                x509.NameAttribute(NameOID.LOCALITY_NAME, "Local"),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "ProxyOX"),
+                x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+            ])
+            
+            cert = x509.CertificateBuilder().subject_name(
+                subject
+            ).issuer_name(
+                issuer
+            ).public_key(
+                private_key.public_key()
+            ).serial_number(
+                x509.random_serial_number()
+            ).not_valid_before(
+                datetime.utcnow()
+            ).not_valid_after(
+                datetime.utcnow() + timedelta(days=365)
+            ).add_extension(
+                x509.SubjectAlternativeName([
+                    x509.DNSName("localhost"),
+                    x509.DNSName("*.localhost"),
+                ]),
+                critical=False,
+            ).sign(private_key, hashes.SHA256())
+            
+            # Créer des fichiers temporaires
+            cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+            key_pem = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption()
+            )
+            
+            # Écrire dans des fichiers temporaires
+            with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.crt') as cert_file:
+                cert_file.write(cert_pem)
+                cert_filename = cert_file.name
+            
+            with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.key') as key_file:
+                key_file.write(key_pem)
+                key_filename = key_file.name
+            
+            # Créer le contexte SSL
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_context.load_cert_chain(certfile=cert_filename, keyfile=key_filename)
+            
+            # Nettoyer les fichiers temporaires (ils sont déjà chargés en mémoire)
+            try:
+                os.unlink(cert_filename)
+                os.unlink(key_filename)
+            except:
+                pass
+            
+            return ssl_context
+            
+        except ImportError:
+            logger.warning("cryptography module not available, TLS will not work without cert files")
+            return None
     
     async def _update_bytes_history(self):
         """Met à jour l'historique des bytes toutes les secondes"""

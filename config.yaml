@@ -9,6 +9,12 @@ frontends:
     bind: 0.0.0.0:9000
     mode: tcp
     default_backend: tcp-server
+    # Mode flexible Cloudflare : TLS côté client, TCP non chiffré vers backend
+    flexible: true
+    # Optionnel : spécifier vos propres certificats
+    # certfile: /path/to/cert.pem
+    # keyfile: /path/to/key.pem
+    # Si non spécifié, un certificat auto-signé sera généré
 
   - name: udp-fe
     bind: 127.0.0.1:9001

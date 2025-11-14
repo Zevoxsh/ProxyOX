@@ -45,7 +45,12 @@ async def main():
         target_host, target_port = server["server"].split(":")
         target_port = int(target_port)
 
-        await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port)
+        # Support pour le mode flexible Cloudflare (TLS côté client, TCP vers backend)
+        use_tls = fe.get("tls", False) or fe.get("flexible", False)
+        certfile = fe.get("certfile")
+        keyfile = fe.get("keyfile")
+
+        await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
 
     print("✅ All proxies running. Starting dashboard...")
 
