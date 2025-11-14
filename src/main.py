@@ -46,13 +46,15 @@ async def main():
         target_port = int(target_port)
 
         # Support pour le mode flexible Cloudflare (TLS côté client, TCP vers backend)
-        use_tls = fe.get("tls", False) or fe.get("flexible", False)
+        use_tls = fe.get("tls", False)
+        flexible = fe.get("flexible", False)
         certfile = fe.get("certfile")
         keyfile = fe.get("keyfile")
 
         try:
-            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile)
-            print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port}")
+            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, flexible)
+            mode_str = "FLEXIBLE (HTTP/HTTPS Auto)" if flexible else mode.upper()
+            print(f"✅ {mode_str} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port}")
         except Exception as e:
             print(f"❌ FAILED to start {mode.upper()} proxy on {listen_host}:{listen_port}: {e}")
             import traceback

@@ -9,12 +9,17 @@ frontends:
     bind: 0.0.0.0:443
     mode: tcp
     default_backend: tcp-server
-    # Mode flexible Cloudflare : TLS côté client, TCP non chiffré vers backend
+    # Mode flexible Cloudflare activé!
+    # Le proxy accepte les connexions HTTPS (avec certificat auto-signé)
+    # et transmet en HTTP simple vers le backend.
+    # Parfait pour Cloudflare Flexible SSL:
+    #   - Cloudflare <-> ProxyOX : HTTPS (certificat auto-signé OK car Cloudflare accepte)
+    #   - ProxyOX <-> Backend : HTTP simple
     flexible: true
     # Optionnel : spécifier vos propres certificats
     # certfile: /path/to/cert.pem
     # keyfile: /path/to/key.pem
-    # Si non spécifié, un certificat auto-signé sera généré
+    # Si non spécifié, un certificat auto-signé sera généré automatiquement
 
   - name: udp-fe
     bind: 127.0.0.1:9001
