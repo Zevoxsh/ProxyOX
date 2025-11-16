@@ -15,8 +15,13 @@ sys.path.insert(0, str(project_root))
 # Load environment variables
 load_dotenv(project_root / ".env")
 
-from src.proxy.manager import ProxyManager
-from src.dashboard.app import Dashboard
+# Handle imports whether running from project root or src directory
+try:
+    from src.proxy.manager import ProxyManager
+    from src.dashboard.app import Dashboard
+except ModuleNotFoundError:
+    from proxy.manager import ProxyManager
+    from dashboard.app import Dashboard
 
 # --- Logging setup ---
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +34,7 @@ structlog.configure(
 async def main():
     # Charger la config (use absolute path)
     config_path = project_root / "config.yaml"
-    with open(config_path, "r") as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     manager = ProxyManager()
@@ -55,9 +60,12 @@ async def main():
         
         # Support pour backend HTTPS (nouveau!)
         backend_ssl = fe.get("backend_ssl", False) or backend_https
+        
+        # Récupérer le nom personnalisé
+        proxy_name = fe.get("name", f"{mode}_{listen_host}_{listen_port}")
 
         try:
-            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl, backend_https)
+            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl, backend_https, proxy_name)
             backend_protocol = "HTTPS" if (backend_ssl or backend_https) else "HTTP"
             print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port} ({backend_protocol})")
         except Exception as e:

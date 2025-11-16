@@ -12,8 +12,8 @@ class ProxyManager:
         self.udp_proxies = {}
         self.http_proxies = {}
 
-    async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False, backend_https=False):
-        proxy_id = f"{proto}_{listen_host}_{listen_port}"
+    async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False, backend_https=False, proxy_name=None):
+        proxy_id = proxy_name or f"{proto}_{listen_host}_{listen_port}"
         if proto == "tcp":
             await self.register_tcp(proxy_id, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl)
         elif proto == "udp":
@@ -49,69 +49,88 @@ class ProxyManager:
         self.http_proxies[proxy_id] = proxy
 
     def get_stats(self):
-        stats = []
-        for p in self.tcp_proxies.values():
+        proxies = []
+        for proxy_id, p in self.tcp_proxies.items():
             uptime = int(time.time() - p.start_time) if p.start_time else 0
-            stats.append({
+            proxies.append({
+                "name": proxy_id,
                 "protocol": "TCP",
                 "listen": f"{p.listen_host}:{p.listen_port}",
                 "target": f"{p.target_host}:{p.target_port}",
-                "bytes_in": p.bytes_in,
-                "bytes_out": p.bytes_out,
-                "active_connections": p.active_connections,
-                "total_connections": p.total_connections,
-                "failed_connections": p.failed_connections,
-                "peak_connections": p.peak_connections,
+                "backend_ssl": p.backend_ssl if hasattr(p, 'backend_ssl') else False,
                 "status": p.status,
                 "uptime": uptime,
+                "stats": {
+                    "bytes_sent": p.bytes_out,
+                    "bytes_received": p.bytes_in,
+                    "active_connections": p.active_connections,
+                    "total_connections": p.total_connections,
+                },
+                "bytes_in": p.bytes_in,
+                "bytes_out": p.bytes_out,
+                "failed_connections": p.failed_connections,
+                "peak_connections": p.peak_connections,
                 "last_error": p.last_error,
                 "last_error_time": p.last_error_time,
                 "bytes_history": list(p.bytes_history),
-                "connection_history": list(p.connection_history)[-10:],  # 10 dernières
+                "connection_history": list(p.connection_history)[-10:],
                 "total_bytes_transferred": p.total_bytes_transferred,
             })
-        for p in self.udp_proxies.values():
+        for proxy_id, p in self.udp_proxies.items():
             uptime = int(time.time() - p.start_time) if p.start_time else 0
-            stats.append({
+            proxies.append({
+                "name": proxy_id,
                 "protocol": "UDP",
                 "listen": f"{p.listen_host}:{p.listen_port}",
                 "target": f"{p.target_host}:{p.target_port}",
-                "bytes_in": p.bytes_in,
-                "bytes_out": p.bytes_out,
-                "packets_in": p.packets_in,
-                "packets_out": p.packets_out,
-                "peak_packets_per_sec": p.peak_packets_per_sec,
+                "backend_ssl": False,
                 "status": p.status,
                 "uptime": uptime,
+                "stats": {
+                    "packets_sent": p.packets_out,
+                    "packets_received": p.packets_in,
+                    "bytes_sent": p.bytes_out,
+                    "bytes_received": p.bytes_in,
+                },
+                "bytes_in": p.bytes_in,
+                "bytes_out": p.bytes_out,
+                "peak_packets_per_sec": p.peak_packets_per_sec,
                 "last_error": p.last_error,
                 "last_error_time": p.last_error_time,
                 "bytes_history": list(p.bytes_history),
                 "packet_history": list(p.packet_history),
                 "total_bytes_transferred": p.total_bytes_transferred,
             })
-        for p in self.http_proxies.values():
+        for proxy_id, p in self.http_proxies.items():
             uptime = int(time.time() - p.start_time) if p.start_time else 0
-            stats.append({
+            proxies.append({
+                "name": proxy_id,
                 "protocol": "HTTP",
                 "listen": f"{p.listen_host}:{p.listen_port}",
                 "target": f"{p.target_host}:{p.target_port}",
+                "backend_ssl": p.backend_https if hasattr(p, 'backend_https') else False,
+                "status": p.status,
+                "uptime": uptime,
+                "stats": {
+                    "requests": p.total_requests,
+                    "responses": p.total_requests - p.failed_requests,
+                    "avg_response_time": p.avg_response_time,
+                    "bytes_sent": p.bytes_out,
+                    "bytes_received": p.bytes_in,
+                },
                 "bytes_in": p.bytes_in,
                 "bytes_out": p.bytes_out,
-                "total_requests": p.total_requests,
                 "active_requests": p.active_requests,
                 "failed_requests": p.failed_requests,
                 "peak_requests": p.peak_requests,
-                "avg_response_time": p.avg_response_time,
                 "method_stats": p.method_stats,
-                "status": p.status,
-                "uptime": uptime,
                 "last_error": p.last_error,
                 "last_error_time": p.last_error_time,
                 "bytes_history": list(p.bytes_history),
-                "request_history": list(p.request_history)[-10:],  # 10 dernières
+                "request_history": list(p.request_history)[-10:],
                 "total_bytes_transferred": p.total_bytes_transferred,
             })
-        return stats
+        return {"proxies": proxies}
 
     async def stop_all(self):
         for proxy in self.tcp_proxies.values():
