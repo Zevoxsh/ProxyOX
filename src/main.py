@@ -23,23 +23,23 @@ except ModuleNotFoundError:
     from proxy.manager import ProxyManager
     from dashboard.app import Dashboard
 
-# --- Logging setup ---
+# Logging setup
 logging.basicConfig(level=logging.INFO)
 structlog.configure(
     wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
     processors=[structlog.processors.KeyValueRenderer()]
 )
 
-# --- Main entrypoint ---
 async def main():
-    # Charger la config (use absolute path)
+    """Main entrypoint for ProxyOX"""
+    # Load config
     config_path = project_root / "config.yaml"
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     manager = ProxyManager()
 
-    # Démarrer les proxys définis dans la config
+    # Start proxies from config
     for fe in config.get("frontends", []):
         mode = fe.get("mode", "tcp").lower()
         listen_host, listen_port = fe["bind"].split(":")
@@ -50,34 +50,24 @@ async def main():
         target_host, target_port = backend["server"].split(":")
         target_port = int(target_port)
         
-        # Lire si le backend utilise HTTPS
         backend_https = backend.get("https", False)
-
-        # Support pour le mode TLS si nécessaire
         use_tls = fe.get("tls", False)
         certfile = fe.get("certfile")
         keyfile = fe.get("keyfile")
-        
-        # Support pour backend HTTPS (nouveau!)
         backend_ssl = fe.get("backend_ssl", False) or backend_https
-        
-        # Récupérer le nom personnalisé
         proxy_name = fe.get("name", f"{mode}_{listen_host}_{listen_port}")
 
         try:
-            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl, backend_https, proxy_name)
+            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, 
+                                      use_tls, certfile, keyfile, backend_ssl, backend_https, proxy_name)
             backend_protocol = "HTTPS" if (backend_ssl or backend_https) else "HTTP"
             print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port} ({backend_protocol})")
         except Exception as e:
             print(f"❌ FAILED to start {mode.upper()} proxy on {listen_host}:{listen_port}: {e}")
-            import traceback
-            traceback.print_exc()
-            # Continue avec les autres proxies
 
     print("✅ All proxies running. Starting dashboard...")
 
-    # --- Lancer le dashboard web ---
-    # Get dashboard settings from .env
+    # Start dashboard
     dashboard_host = os.getenv("DASHBOARD_HOST", "0.0.0.0")
     dashboard_port = int(os.getenv("DASHBOARD_PORT", "8080"))
     
@@ -90,7 +80,7 @@ async def main():
     await site.start()
 
     print(f"🌐 Dashboard running on http://{dashboard_host}:{dashboard_port}")
-    print(f"🔐 Login required - check /etc/proxyox/.env for credentials")
+    print(f"🔐 Login required - check .env for credentials")
 
     try:
         while True:
@@ -100,6 +90,9 @@ async def main():
         await manager.stop_all()
         await runner.cleanup()
         print("✅ All stopped.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
 
 if __name__ == "__main__":
     asyncio.run(main())

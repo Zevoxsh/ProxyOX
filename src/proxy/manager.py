@@ -12,10 +12,15 @@ class ProxyManager:
         self.udp_proxies = {}
         self.http_proxies = {}
 
-    async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False, backend_https=False, proxy_name=None):
+    async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, 
+                          use_tls=False, certfile=None, keyfile=None, backend_ssl=False, 
+                          backend_https=False, proxy_name=None):
+        """Create and register a proxy of the specified type"""
         proxy_id = proxy_name or f"{proto}_{listen_host}_{listen_port}"
+        
         if proto == "tcp":
-            await self.register_tcp(proxy_id, listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl)
+            await self.register_tcp(proxy_id, listen_host, listen_port, target_host, target_port, 
+                                   use_tls, certfile, keyfile, backend_ssl)
         elif proto == "udp":
             await self.register_udp(proxy_id, listen_host, listen_port, target_host, target_port)
         elif proto == "http":
@@ -23,7 +28,9 @@ class ProxyManager:
         else:
             logger.error("Unknown proxy type", proto=proto)
 
-    async def register_tcp(self, proxy_id, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False):
+    async def register_tcp(self, proxy_id, listen_host, listen_port, target_host, target_port, 
+                          use_tls=False, certfile=None, keyfile=None, backend_ssl=False):
+        """Register a TCP proxy"""
         if proxy_id in self.tcp_proxies:
             return
         try:
@@ -35,6 +42,7 @@ class ProxyManager:
             raise
 
     async def register_udp(self, proxy_id, listen_host, listen_port, target_host, target_port):
+        """Register a UDP proxy"""
         if proxy_id in self.udp_proxies:
             return
         proxy = UDPProxy(listen_host, listen_port, target_host, target_port)
@@ -42,42 +50,41 @@ class ProxyManager:
         self.udp_proxies[proxy_id] = proxy
 
     async def register_http(self, proxy_id, listen_host, listen_port, target_host, target_port, backend_https=False):
+        """Register an HTTP proxy"""
         if proxy_id in self.http_proxies:
             return
         proxy = HttpProxy(listen_host, listen_port, target_host, target_port, backend_https)
         await proxy.start()
         self.http_proxies[proxy_id] = proxy
 
+    def _get_uptime(self, proxy):
+        """Calculate proxy uptime in seconds"""
+        return int(time.time() - proxy.start_time) if proxy.start_time else 0
+
     def get_stats(self):
+        """Get statistics for all proxies in JSON format"""
         proxies = []
+        
+        # TCP proxies
         for proxy_id, p in self.tcp_proxies.items():
-            uptime = int(time.time() - p.start_time) if p.start_time else 0
             proxies.append({
                 "name": proxy_id,
                 "protocol": "TCP",
                 "listen": f"{p.listen_host}:{p.listen_port}",
                 "target": f"{p.target_host}:{p.target_port}",
-                "backend_ssl": p.backend_ssl if hasattr(p, 'backend_ssl') else False,
+                "backend_ssl": getattr(p, 'backend_ssl', False),
                 "status": p.status,
-                "uptime": uptime,
+                "uptime": self._get_uptime(p),
                 "stats": {
                     "bytes_sent": p.bytes_out,
                     "bytes_received": p.bytes_in,
                     "active_connections": p.active_connections,
                     "total_connections": p.total_connections,
-                },
-                "bytes_in": p.bytes_in,
-                "bytes_out": p.bytes_out,
-                "failed_connections": p.failed_connections,
-                "peak_connections": p.peak_connections,
-                "last_error": p.last_error,
-                "last_error_time": p.last_error_time,
-                "bytes_history": list(p.bytes_history),
-                "connection_history": list(p.connection_history)[-10:],
-                "total_bytes_transferred": p.total_bytes_transferred,
+                }
             })
+        
+        # UDP proxies
         for proxy_id, p in self.udp_proxies.items():
-            uptime = int(time.time() - p.start_time) if p.start_time else 0
             proxies.append({
                 "name": proxy_id,
                 "protocol": "UDP",
@@ -85,54 +92,38 @@ class ProxyManager:
                 "target": f"{p.target_host}:{p.target_port}",
                 "backend_ssl": False,
                 "status": p.status,
-                "uptime": uptime,
+                "uptime": self._get_uptime(p),
                 "stats": {
                     "packets_sent": p.packets_out,
                     "packets_received": p.packets_in,
                     "bytes_sent": p.bytes_out,
                     "bytes_received": p.bytes_in,
-                },
-                "bytes_in": p.bytes_in,
-                "bytes_out": p.bytes_out,
-                "peak_packets_per_sec": p.peak_packets_per_sec,
-                "last_error": p.last_error,
-                "last_error_time": p.last_error_time,
-                "bytes_history": list(p.bytes_history),
-                "packet_history": list(p.packet_history),
-                "total_bytes_transferred": p.total_bytes_transferred,
+                }
             })
+        
+        # HTTP proxies
         for proxy_id, p in self.http_proxies.items():
-            uptime = int(time.time() - p.start_time) if p.start_time else 0
             proxies.append({
                 "name": proxy_id,
                 "protocol": "HTTP",
                 "listen": f"{p.listen_host}:{p.listen_port}",
                 "target": f"{p.target_host}:{p.target_port}",
-                "backend_ssl": p.backend_https if hasattr(p, 'backend_https') else False,
+                "backend_ssl": getattr(p, 'backend_https', False),
                 "status": p.status,
-                "uptime": uptime,
+                "uptime": self._get_uptime(p),
                 "stats": {
                     "requests": p.total_requests,
                     "responses": p.total_requests - p.failed_requests,
                     "avg_response_time": p.avg_response_time,
                     "bytes_sent": p.bytes_out,
                     "bytes_received": p.bytes_in,
-                },
-                "bytes_in": p.bytes_in,
-                "bytes_out": p.bytes_out,
-                "active_requests": p.active_requests,
-                "failed_requests": p.failed_requests,
-                "peak_requests": p.peak_requests,
-                "method_stats": p.method_stats,
-                "last_error": p.last_error,
-                "last_error_time": p.last_error_time,
-                "bytes_history": list(p.bytes_history),
-                "request_history": list(p.request_history)[-10:],
-                "total_bytes_transferred": p.total_bytes_transferred,
+                }
             })
+        
         return {"proxies": proxies}
 
     async def stop_all(self):
+        """Stop all registered proxies"""
         for proxy in self.tcp_proxies.values():
             await proxy.stop()
         for proxy in self.udp_proxies.values():

@@ -1,9 +1,7 @@
 import json
-from aiohttp import web, WSMsgType
+from aiohttp import web
 import structlog
 import asyncio
-import mimetypes
-import time
 import base64
 import os
 from pathlib import Path
@@ -20,15 +18,10 @@ load_dotenv(env_path)
 DASHBOARD_USERNAME = os.getenv("DASHBOARD_USERNAME", "proxyox")
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "changeme")
 
-logger.info(f"Dashboard authentication configured",
+logger.info("Dashboard authentication configured",
             username=DASHBOARD_USERNAME,
             env_file_exists=env_path.exists(),
             password_set=bool(DASHBOARD_PASSWORD and DASHBOARD_PASSWORD != "changeme"))
-
-mimetypes.init()
-mimetypes.add_type('application/javascript', '.js')
-mimetypes.add_type('text/css', '.css')
-mimetypes.add_type('application/json', '.json')
 
 class Dashboard:
     def __init__(self, proxy_manager):
@@ -37,15 +30,13 @@ class Dashboard:
         self.app.router.add_get("/", self.handle_index)
         self.app.router.add_get("/ws", self.websocket_handler)
         
-        # Serve static files from the static directory
+        # Serve static files
         static_path = Path(__file__).parent / "static"
-        assets_path = static_path / "assets"
-        
-        # Only add routes if directories exist
         if static_path.exists():
             self.app.router.add_static("/static/", path=str(static_path), name="static")
-        if assets_path.exists():
-            self.app.router.add_static("/assets/", path=str(assets_path), name="assets")
+            assets_path = static_path / "assets"
+            if assets_path.exists():
+                self.app.router.add_static("/assets/", path=str(assets_path), name="assets")
 
     def create_app(self):
         return self.app
@@ -54,8 +45,11 @@ class Dashboard:
     async def auth_middleware(self, request, handler):
         """Middleware to check authentication on all requests"""
         if not self.check_auth(request):
-            return self.require_auth()
-
+            return web.Response(
+                status=401,
+                text='Authentication required',
+                headers={'WWW-Authenticate': 'Basic realm="ProxyOX Dashboard"'}
+            )
         return await handler(request)
 
     def check_auth(self, request):
@@ -76,24 +70,15 @@ class Dashboard:
         except Exception:
             return False
 
-    def require_auth(self):
-        """Return 401 response requiring authentication"""
-        return web.Response(
-            status=401,
-            text='Authentication required',
-            headers={
-                'WWW-Authenticate': 'Basic realm="ProxyOX Dashboard"'
-            }
-        )
-
     async def handle_index(self, request):
-        # Serve the new dashboard
+        """Serve the dashboard"""
         dashboard_path = Path(__file__).parent / "static" / "index.html"
         with open(dashboard_path, "r", encoding="utf-8") as f:
             html = f.read()
         return web.Response(text=html, content_type="text/html")
 
     async def websocket_handler(self, request):
+        """Handle WebSocket connections for real-time stats"""
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         logger.info("Client connected to dashboard")
