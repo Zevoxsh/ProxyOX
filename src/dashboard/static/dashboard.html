@@ -787,20 +787,18 @@
         function updateMainChart(proxies) {
             const ctx = document.getElementById('mainChart');
             
-            // Store historical data
-            const timestamp = Date.now();
+            // Store historical data avec timestamp réel
+            const now = Date.now();
             proxies.forEach(proxy => {
                 if (!historicalData[proxy.name]) {
                     historicalData[proxy.name] = [];
                 }
                 const stats = proxy.stats || {};
                 const value = stats.requests || stats.total_connections || 0;
-                historicalData[proxy.name].push({ timestamp, value });
+                historicalData[proxy.name].push({ timestamp: now, value });
                 
-                // Keep only last 60 points
-                if (historicalData[proxy.name].length > 60) {
-                    historicalData[proxy.name].shift();
-                }
+                // Garder seulement les 10 dernières secondes
+                historicalData[proxy.name] = historicalData[proxy.name].filter(d => now - d.timestamp <= 10000);
             });
 
             // Prepare datasets
@@ -809,28 +807,36 @@
                 '#10b981', '#ec4899', '#06b6d4', '#8b5cf6', '#14b8a6'
             ];
 
-            // Créer les labels (0 à 60)
-            const maxLength = Math.max(...Object.values(historicalData).map(h => h.length), 1);
-            const labels = Array.from({ length: maxLength }, (_, i) => i);
+            // Créer les labels pour les 10 dernières secondes
+            const labels = Array.from({ length: 10 }, (_, i) => (10 - i) + 's');
 
             const datasets = proxies.map((proxy, index) => {
                 const data = historicalData[proxy.name] || [];
-                // Remplir avec des valeurs pour avoir la même longueur
-                const paddedData = [...Array(maxLength - data.length).fill(null), ...data.map(d => d.value)];
+                // Créer un tableau de 10 valeurs (1 par seconde)
+                const values = Array(10).fill(null);
+                
+                // Remplir avec les valeurs des 10 dernières secondes
+                data.forEach(point => {
+                    const secondsAgo = Math.floor((now - point.timestamp) / 1000);
+                    if (secondsAgo < 10) {
+                        values[9 - secondsAgo] = point.value;
+                    }
+                });
                 
                 return {
                     label: proxy.name,
-                    data: paddedData,
+                    data: values,
                     borderColor: colors[index % colors.length],
                     backgroundColor: colors[index % colors.length] + '10',
                     borderWidth: 2.5,
                     tension: 0.4,
                     fill: true,
                     pointRadius: 0,
-                    pointHoverRadius: 5,
+                    pointHoverRadius: 6,
                     pointHoverBorderWidth: 2,
                     pointHoverBackgroundColor: colors[index % colors.length],
-                    pointHoverBorderColor: '#0a0e1a'
+                    pointHoverBorderColor: '#0a0e1a',
+                    spanGaps: true
                 };
             });
 
@@ -846,8 +852,7 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         interaction: {
-                            mode: 'nearest',
-                            axis: 'x',
+                            mode: 'index',
                             intersect: false
                         },
                         plugins: {
@@ -883,17 +888,21 @@
                                 },
                                 callbacks: {
                                     title: function(context) {
-                                        return 'Point #' + context[0].label;
+                                        return context[0].label;
                                     },
                                     label: function(context) {
                                         const label = context.dataset.label || '';
-                                        const value = formatNumber(context.parsed.y);
-                                        const isHTTP = context.dataset.label.includes('http');
+                                        const value = context.parsed.y;
+                                        if (value === null) return null;
+                                        
+                                        const proxy = proxies.find(p => p.name === label);
+                                        const isHTTP = proxy && proxy.protocol === 'HTTP';
                                         const unit = isHTTP ? ' requests' : ' connections';
-                                        return label + ': ' + value + unit;
+                                        
+                                        return label + ': ' + formatNumber(value) + unit;
                                     },
                                     afterLabel: function(context) {
-                                        // Afficher des infos supplémentaires si disponibles
+                                        // Afficher des infos supplémentaires
                                         const proxy = proxies.find(p => p.name === context.dataset.label);
                                         if (proxy && proxy.stats) {
                                             const stats = proxy.stats;
@@ -902,6 +911,10 @@
                                         }
                                         return '';
                                     }
+                                },
+                                filter: function(tooltipItem) {
+                                    // Ne pas afficher les valeurs null
+                                    return tooltipItem.parsed.y !== null;
                                 }
                             }
                         },
@@ -912,7 +925,10 @@
                                     display: false
                                 },
                                 ticks: {
-                                    display: false
+                                    color: '#64748b',
+                                    font: {
+                                        size: 10
+                                    }
                                 }
                             },
                             y: {
