@@ -23,6 +23,7 @@ systemctl disable proxyox 2>/dev/null || true
 # Remove service file
 echo "🗑️  Removing systemd service..."
 rm -f /etc/systemd/system/proxyox.service
+rm -rf /etc/proxyox 2>/dev/null || true
 
 # Reload systemd
 echo "🔄 Reloading systemd..."
