@@ -118,6 +118,12 @@ class Dashboard:
                 stats = self.proxy_manager.get_stats()
                 stats['maintenance_mode'] = self.maintenance_mode
                 stats['timestamp'] = datetime.now().isoformat()
+                
+                # Log pour debug
+                logger.debug(f"Sending stats: {len(stats.get('proxies', []))} proxies")
+                for proxy in stats.get('proxies', []):
+                    logger.debug(f"  - {proxy['name']}: {proxy.get('stats', {})}")
+                
                 await ws.send_str(json.dumps(stats))
                 await asyncio.sleep(1)
         except Exception as e:

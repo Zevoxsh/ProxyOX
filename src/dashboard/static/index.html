@@ -352,6 +352,11 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('Données reçues:', data);
+                    console.log('Proxies:', data.proxies);
+                    if (data.proxies && data.proxies.length > 0) {
+                        console.log('Premier proxy:', data.proxies[0]);
+                    }
                     updateDashboard(data);
                 } catch (error) {
                     console.error('Erreur parsing données:', error);
