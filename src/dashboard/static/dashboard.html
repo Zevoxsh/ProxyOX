@@ -1007,14 +1007,20 @@
                     body: JSON.stringify({ proxy: proxyName })
                 });
 
+                // Vérifier si la réponse est JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+                }
+
                 const result = await response.json();
                 
                 if (response.ok) {
                     showAlert('success', `Proxy ${action}`, 
-                        `${proxyName} ${action} successful`, `control_${proxyName}_${Date.now()}`);
+                        result.message || `${proxyName} ${action} successful`, `control_${proxyName}_${Date.now()}`);
                 } else {
                     showAlert('error', `Proxy ${action} failed`, 
-                        result.error || 'Unknown error', `control_error_${Date.now()}`);
+                        result.error || result.message || 'Unknown error', `control_error_${Date.now()}`);
                 }
             } catch (error) {
                 showAlert('error', `Proxy ${action} failed`, 

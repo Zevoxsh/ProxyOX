@@ -4,11 +4,13 @@ import logging
 import time
 import ssl
 from collections import deque
+from .ip_filter import IPFilter
+from pathlib import Path
 
 logger = logging.getLogger("http_proxy")
 
 class HttpProxy:
-    def __init__(self, listen_host, listen_port, target_host=None, target_port=None, backend_https=False, domain_routes=None, max_connections=100, rate_limit=1000):
+    def __init__(self, listen_host, listen_port, target_host=None, target_port=None, backend_https=False, domain_routes=None, max_connections=100, rate_limit=1000, ip_filter=None):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
@@ -17,12 +19,14 @@ class HttpProxy:
         self.domain_routes = domain_routes or {}  # Routes basées sur les domaines
         self.max_connections = max_connections
         self.rate_limit = rate_limit  # Requêtes par seconde
+        self.ip_filter = ip_filter  # Filtre IP
         self.runner = None
         self.bytes_in = 0
         self.bytes_out = 0
         self.total_requests = 0
         self.active_requests = 0
         self.failed_requests = 0
+        self.blocked_ips = 0  # Nombre d'IPs bloquées
         self.start_time = None
         self.status = "stopped"
         self.last_error = None
@@ -37,6 +41,14 @@ class HttpProxy:
         self.rate_limiter = deque(maxlen=rate_limit)  # Timestamps des dernières requêtes
 
     async def handle_request(self, request):
+        # IP Filtering
+        client_ip = request.remote
+        if self.ip_filter and not self.ip_filter.is_allowed(client_ip):
+            self.blocked_ips += 1
+            self.failed_requests += 1
+            logger.warning(f"Blocked request from {client_ip}")
+            return web.Response(text="Access Denied", status=403)
+        
         # Rate limiting
         now = time.time()
         self.rate_limiter.append(now)

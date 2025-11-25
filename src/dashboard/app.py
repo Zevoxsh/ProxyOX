@@ -58,6 +58,15 @@ class Dashboard:
         self.app.router.add_post("/api/proxy/stop", self.api_proxy_stop_simple)
         self.app.router.add_post("/api/proxy/restart", self.api_proxy_restart_simple)
         
+        # IP Filtering endpoints
+        self.app.router.add_get("/api/ipfilter/stats", self.api_ipfilter_stats)
+        self.app.router.add_post("/api/ipfilter/blacklist/add", self.api_blacklist_add)
+        self.app.router.add_post("/api/ipfilter/blacklist/remove", self.api_blacklist_remove)
+        self.app.router.add_post("/api/ipfilter/blacklist/clear", self.api_blacklist_clear)
+        self.app.router.add_post("/api/ipfilter/whitelist/add", self.api_whitelist_add)
+        self.app.router.add_post("/api/ipfilter/whitelist/remove", self.api_whitelist_remove)
+        self.app.router.add_post("/api/ipfilter/whitelist/clear", self.api_whitelist_clear)
+        
         # Serve static files
         static_path = Path(__file__).parent / "static"
         if static_path.exists():
@@ -655,4 +664,100 @@ class Dashboard:
                 "status": "error",
                 "error": str(e)
             }, status=500)
+    
+    # IP Filtering API
+    async def api_ipfilter_stats(self, request):
+        """Get IP filter statistics"""
+        try:
+            stats = self.proxy_manager.ip_filter.get_stats()
+            return web.json_response(stats)
+        except Exception as e:
+            logger.error(f"IP filter stats failed: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+    
+    async def api_blacklist_add(self, request):
+        """Add IP to blacklist"""
+        try:
+            data = await request.json()
+            ip = data.get('ip')
+            if not ip:
+                return web.json_response({"error": "IP address required"}, status=400)
+            
+            success = self.proxy_manager.ip_filter.add_to_blacklist(ip)
+            if success:
+                return web.json_response({"status": "success", "message": f"Added {ip} to blacklist"})
+            else:
+                return web.json_response({"error": "Invalid IP address"}, status=400)
+        except Exception as e:
+            logger.error(f"Blacklist add failed: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+    
+    async def api_blacklist_remove(self, request):
+        """Remove IP from blacklist"""
+        try:
+            data = await request.json()
+            ip = data.get('ip')
+            if not ip:
+                return web.json_response({"error": "IP address required"}, status=400)
+            
+            success = self.proxy_manager.ip_filter.remove_from_blacklist(ip)
+            if success:
+                return web.json_response({"status": "success", "message": f"Removed {ip} from blacklist"})
+            else:
+                return web.json_response({"error": "IP not found in blacklist"}, status=404)
+        except Exception as e:
+            logger.error(f"Blacklist remove failed: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+    
+    async def api_blacklist_clear(self, request):
+        """Clear blacklist"""
+        try:
+            self.proxy_manager.ip_filter.clear_blacklist()
+            return web.json_response({"status": "success", "message": "Blacklist cleared"})
+        except Exception as e:
+            logger.error(f"Blacklist clear failed: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+    
+    async def api_whitelist_add(self, request):
+        """Add IP to whitelist"""
+        try:
+            data = await request.json()
+            ip = data.get('ip')
+            if not ip:
+                return web.json_response({"error": "IP address required"}, status=400)
+            
+            success = self.proxy_manager.ip_filter.add_to_whitelist(ip)
+            if success:
+                return web.json_response({"status": "success", "message": f"Added {ip} to whitelist"})
+            else:
+                return web.json_response({"error": "Invalid IP address"}, status=400)
+        except Exception as e:
+            logger.error(f"Whitelist add failed: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+    
+    async def api_whitelist_remove(self, request):
+        """Remove IP from whitelist"""
+        try:
+            data = await request.json()
+            ip = data.get('ip')
+            if not ip:
+                return web.json_response({"error": "IP address required"}, status=400)
+            
+            success = self.proxy_manager.ip_filter.remove_from_whitelist(ip)
+            if success:
+                return web.json_response({"status": "success", "message": f"Removed {ip} from whitelist"})
+            else:
+                return web.json_response({"error": "IP not found in whitelist"}, status=404)
+        except Exception as e:
+            logger.error(f"Whitelist remove failed: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+    
+    async def api_whitelist_clear(self, request):
+        """Clear whitelist"""
+        try:
+            self.proxy_manager.ip_filter.clear_whitelist()
+            return web.json_response({"status": "success", "message": "Whitelist cleared"})
+        except Exception as e:
+            logger.error(f"Whitelist clear failed: {e}")
+            return web.json_response({"error": str(e)}, status=500)
 

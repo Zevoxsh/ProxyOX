@@ -1,16 +1,23 @@
 import structlog
 import time
+from pathlib import Path
 from .tcp import TCPProxy
 from .udp import UDPProxy
 from .http import HttpProxy
+from .ip_filter import IPFilter
 
 logger = structlog.get_logger()
 
 class ProxyManager:
-    def __init__(self):
+    def __init__(self, data_dir=None):
         self.tcp_proxies = {}
         self.udp_proxies = {}
         self.http_proxies = {}
+        
+        # Initialiser le filtre IP global
+        if data_dir is None:
+            data_dir = Path(__file__).parent.parent.parent / "data"
+        self.ip_filter = IPFilter(Path(data_dir))
 
     async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, 
                           use_tls=False, certfile=None, keyfile=None, backend_ssl=False, 
@@ -37,7 +44,7 @@ class ProxyManager:
         if proxy_id in self.tcp_proxies:
             return
         try:
-            proxy = TCPProxy(listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl, max_connections, rate_limit)
+            proxy = TCPProxy(listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl, max_connections, rate_limit, self.ip_filter)
             await proxy.start()
             self.tcp_proxies[proxy_id] = proxy
         except Exception as e:
@@ -59,7 +66,7 @@ class ProxyManager:
         if proxy_id in self.http_proxies:
             logger.warning(f"HTTP proxy {proxy_id} already registered")
             return
-        proxy = HttpProxy(listen_host, listen_port, target_host, target_port, backend_https, domain_routes, max_connections, rate_limit)
+        proxy = HttpProxy(listen_host, listen_port, target_host, target_port, backend_https, domain_routes, max_connections, rate_limit, self.ip_filter)
         await proxy.start()
         self.http_proxies[proxy_id] = proxy
         logger.info(f"✅ HTTP proxy {proxy_id} registered. Total HTTP proxies: {len(self.http_proxies)}")
@@ -90,6 +97,7 @@ class ProxyManager:
                     "active_connections": p.active_connections,
                     "total_connections": p.total_connections,
                     "failed_connections": getattr(p, 'failed_connections', 0),
+                    "blocked_ips": getattr(p, 'blocked_ips', 0),
                 }
             })
         
@@ -124,6 +132,7 @@ class ProxyManager:
                 "total_requests": p.total_requests,
                 "active_requests": p.active_requests,
                 "failed_requests": p.failed_requests,
+                "blocked_ips": getattr(p, 'blocked_ips', 0),
                 "responses": p.total_requests - p.failed_requests,
                 "avg_response_time": p.avg_response_time,
                 "bytes_sent": p.bytes_out,
@@ -147,7 +156,13 @@ class ProxyManager:
                 "stats": stats
             })
         
-        return {"proxies": proxies}
+        # Ajouter les stats globales du filtre IP
+        ip_filter_stats = self.ip_filter.get_stats()
+        
+        return {
+            "proxies": proxies,
+            "ip_filter": ip_filter_stats
+        }
 
     async def stop_all(self):
         """Stop all registered proxies"""

@@ -4,11 +4,12 @@ import time
 import ssl
 from collections import deque
 from pathlib import Path
+from .ip_filter import IPFilter
 
 logger = logging.getLogger("tcp_proxy")
 
 class TCPProxy:
-    def __init__(self, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False, max_connections=100, rate_limit=1000):
+    def __init__(self, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False, max_connections=100, rate_limit=1000, ip_filter=None):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
@@ -19,12 +20,14 @@ class TCPProxy:
         self.keyfile = keyfile
         self.max_connections = max_connections
         self.rate_limit = rate_limit  # Connexions par seconde
+        self.ip_filter = ip_filter  # Filtre IP
         self.server = None
         self.bytes_in = 0
         self.bytes_out = 0
         self.active_connections = 0
         self.total_connections = 0
         self.failed_connections = 0
+        self.blocked_ips = 0  # Nombre d'IPs bloquées
         self.start_time = None
         self.status = "stopped"
         self.last_error = None
@@ -59,6 +62,18 @@ class TCPProxy:
                 pass
 
     async def handle_client(self, client_reader, client_writer):
+        # IP Filtering
+        client_addr = client_writer.get_extra_info('peername')
+        client_ip = client_addr[0] if client_addr else None
+        
+        if self.ip_filter and client_ip and not self.ip_filter.is_allowed(client_ip):
+            self.blocked_ips += 1
+            self.failed_connections += 1
+            logger.warning(f"Blocked connection from {client_ip}")
+            client_writer.close()
+            await client_writer.wait_closed()
+            return
+        
         # Rate limiting
         now = time.time()
         self.rate_limiter.append(now)
