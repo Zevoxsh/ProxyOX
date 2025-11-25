@@ -86,14 +86,26 @@ class HttpProxy:
                 ssl_context.verify_mode = ssl.CERT_NONE
                 connector = TCPConnector(ssl=ssl_context, force_close=True)
             
-            # Préparer les headers (copier sans Host pour éviter les conflits)
-            headers = dict(request.headers)
-            if 'Host' in headers:
-                # Remplacer par le host du backend
-                headers['Host'] = f"{target_host}:{target_port}"
+            # Préparer les headers (filtrer les headers problématiques)
+            headers = {}
+            # Headers à ne pas transférer (gérés automatiquement par aiohttp)
+            skip_headers = {
+                'host', 'connection', 'keep-alive', 'proxy-connection',
+                'transfer-encoding', 'upgrade', 'content-length',
+                'te', 'trailer', 'proxy-authorization', 'proxy-authenticate'
+            }
+            
+            for key, value in request.headers.items():
+                if key.lower() not in skip_headers:
+                    headers[key] = value
+            
+            # Définir le Host pour le backend
+            headers['Host'] = target_host
+            # Forcer HTTP/1.1 et connection close pour éviter les problèmes
+            headers['Connection'] = 'close'
             
             async with ClientSession(connector=connector) as session:
-                async with session.request(request.method, backend_url, data=data, headers=headers) as resp:
+                async with session.request(request.method, backend_url, data=data, headers=headers, allow_redirects=False) as resp:
                     resp_data = await resp.read()
                     self.bytes_out += len(resp_data)
                     
@@ -114,7 +126,13 @@ class HttpProxy:
                     total_time = sum(r['duration'] for r in self.request_history)
                     self.avg_response_time = total_time / len(self.request_history)
                     
-                    return web.Response(body=resp_data, status=resp.status, headers=resp.headers)
+                    # Filtrer les headers de réponse problématiques
+                    response_headers = {}
+                    for key, value in resp.headers.items():
+                        if key.lower() not in skip_headers:
+                            response_headers[key] = value
+                    
+                    return web.Response(body=resp_data, status=resp.status, headers=response_headers)
         except Exception as e:
             self.failed_requests += 1
             self.last_error = str(e)
