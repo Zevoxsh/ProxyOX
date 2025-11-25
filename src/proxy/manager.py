@@ -110,11 +110,17 @@ class ProxyManager:
         
         # HTTP proxies
         for proxy_id, p in self.http_proxies.items():
+            # Si c'est un reverse proxy avec domain_routes, afficher différemment
+            if hasattr(p, 'domain_routes') and p.domain_routes:
+                target_display = f"Reverse Proxy ({len(p.domain_routes)} domains)"
+            else:
+                target_display = f"{p.target_host}:{p.target_port}"
+                
             proxies.append({
                 "name": proxy_id,
                 "protocol": "HTTP",
                 "listen": f"{p.listen_host}:{p.listen_port}",
-                "target": f"{p.target_host}:{p.target_port}",
+                "target": target_display,
                 "backend_ssl": getattr(p, 'backend_https', False),
                 "status": p.status,
                 "uptime": self._get_uptime(p),
