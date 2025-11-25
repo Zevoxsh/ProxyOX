@@ -13,19 +13,22 @@
         }
 
         :root {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-card: #1e293b;
-            --bg-card-hover: #334155;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --border-color: #334155;
-            --accent-blue: #3b82f6;
-            --accent-purple: #8b5cf6;
-            --accent-green: #10b981;
-            --accent-red: #ef4444;
-            --accent-orange: #f59e0b;
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #0f1419;
+            --bg-card: #141822;
+            --bg-card-hover: #1a1f2e;
+            --text-primary: #e2e8f0;
+            --text-secondary: #8892a6;
+            --border-color: #1e2433;
+            --accent-blue: #5b8def;
+            --accent-purple: #9d5cf6;
+            --accent-green: #22d3ee;
+            --accent-red: #f87171;
+            --accent-orange: #fb923c;
             --accent-cyan: #06b6d4;
+            --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
         }
 
         body {
@@ -50,6 +53,7 @@
             position: fixed;
             height: 100vh;
             overflow-y: auto;
+            box-shadow: var(--shadow-lg);
         }
 
         .logo {
@@ -59,9 +63,10 @@
         }
 
         .logo h1 {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -167,14 +172,16 @@
         .stat-card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 20px;
-            transition: all 0.3s;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
         }
 
         .stat-card:hover {
             border-color: var(--accent-blue);
             transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
 
         .stat-header {
@@ -234,8 +241,9 @@
         .chart-card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 24px;
+            box-shadow: var(--shadow-sm);
         }
 
         .chart-header {
@@ -243,11 +251,15 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .chart-title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
+            letter-spacing: -0.3px;
+            color: var(--text-primary);
         }
 
         .chart-controls {
@@ -326,8 +338,9 @@
         .table-container {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 10px;
             overflow: hidden;
+            box-shadow: var(--shadow-sm);
         }
 
         table {
@@ -336,23 +349,23 @@
         }
 
         thead {
-            background: rgba(59, 130, 246, 0.05);
+            background: rgba(91, 141, 239, 0.05);
             border-bottom: 1px solid var(--border-color);
         }
 
         th {
-            padding: 16px 20px;
+            padding: 14px 18px;
             text-align: left;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
         }
 
         tbody tr {
             border-bottom: 1px solid var(--border-color);
-            transition: background 0.2s;
+            transition: background 0.15s ease;
         }
 
         tbody tr:hover {
@@ -364,8 +377,8 @@
         }
 
         td {
-            padding: 16px 20px;
-            font-size: 14px;
+            padding: 14px 18px;
+            font-size: 13px;
         }
 
         .proxy-name {
@@ -792,8 +805,8 @@
 
             // Prepare datasets
             const colors = [
-                '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', 
-                '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#6366f1'
+                '#5b8def', '#22d3ee', '#9d5cf6', '#fb923c', '#f87171',
+                '#10b981', '#ec4899', '#06b6d4', '#8b5cf6', '#14b8a6'
             ];
 
             // Créer les labels (0 à 60)
@@ -803,18 +816,21 @@
             const datasets = proxies.map((proxy, index) => {
                 const data = historicalData[proxy.name] || [];
                 // Remplir avec des valeurs pour avoir la même longueur
-                const paddedData = [...Array(maxLength - data.length).fill(0), ...data.map(d => d.value)];
+                const paddedData = [...Array(maxLength - data.length).fill(null), ...data.map(d => d.value)];
                 
                 return {
                     label: proxy.name,
                     data: paddedData,
                     borderColor: colors[index % colors.length],
-                    backgroundColor: colors[index % colors.length] + '20',
-                    borderWidth: 2,
+                    backgroundColor: colors[index % colors.length] + '10',
+                    borderWidth: 2.5,
                     tension: 0.4,
                     fill: true,
                     pointRadius: 0,
-                    pointHoverRadius: 4
+                    pointHoverRadius: 5,
+                    pointHoverBorderWidth: 2,
+                    pointHoverBackgroundColor: colors[index % colors.length],
+                    pointHoverBorderColor: '#0a0e1a'
                 };
             });
 
@@ -830,7 +846,8 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         interaction: {
-                            mode: 'index',
+                            mode: 'nearest',
+                            axis: 'x',
                             intersect: false
                         },
                         plugins: {
@@ -840,35 +857,75 @@
                                 labels: {
                                     color: '#94a3b8',
                                     usePointStyle: true,
-                                    padding: 15
+                                    padding: 15,
+                                    font: {
+                                        size: 11,
+                                        weight: '500'
+                                    }
                                 }
                             },
                             tooltip: {
-                                backgroundColor: '#1e293b',
+                                enabled: true,
+                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
                                 titleColor: '#f1f5f9',
-                                bodyColor: '#94a3b8',
-                                borderColor: '#334155',
+                                bodyColor: '#cbd5e1',
+                                borderColor: '#475569',
                                 borderWidth: 1,
                                 padding: 12,
                                 displayColors: true,
+                                usePointStyle: true,
+                                titleFont: {
+                                    size: 13,
+                                    weight: '600'
+                                },
+                                bodyFont: {
+                                    size: 12
+                                },
                                 callbacks: {
+                                    title: function(context) {
+                                        return 'Point #' + context[0].label;
+                                    },
                                     label: function(context) {
-                                        return `${context.dataset.label}: ${formatNumber(context.parsed.y)}`;
+                                        const label = context.dataset.label || '';
+                                        const value = formatNumber(context.parsed.y);
+                                        const isHTTP = context.dataset.label.includes('http');
+                                        const unit = isHTTP ? ' requests' : ' connections';
+                                        return label + ': ' + value + unit;
+                                    },
+                                    afterLabel: function(context) {
+                                        // Afficher des infos supplémentaires si disponibles
+                                        const proxy = proxies.find(p => p.name === context.dataset.label);
+                                        if (proxy && proxy.stats) {
+                                            const stats = proxy.stats;
+                                            const bytesTotal = (stats.bytes_sent || 0) + (stats.bytes_received || 0);
+                                            return 'Data: ' + formatBytes(bytesTotal);
+                                        }
+                                        return '';
                                     }
                                 }
                             }
                         },
                         scales: {
                             x: {
-                                display: false
+                                display: true,
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    display: false
+                                }
                             },
                             y: {
                                 beginAtZero: true,
                                 grid: {
-                                    color: '#334155'
+                                    color: 'rgba(51, 65, 85, 0.3)',
+                                    lineWidth: 1
                                 },
                                 ticks: {
-                                    color: '#94a3b8'
+                                    color: '#64748b',
+                                    font: {
+                                        size: 11
+                                    }
                                 }
                             }
                         }
