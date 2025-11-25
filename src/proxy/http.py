@@ -92,7 +92,8 @@ class HttpProxy:
             skip_headers = {
                 'host', 'connection', 'keep-alive', 'proxy-connection',
                 'transfer-encoding', 'upgrade', 'content-length',
-                'te', 'trailer', 'proxy-authorization', 'proxy-authenticate'
+                'te', 'trailer', 'proxy-authorization', 'proxy-authenticate',
+                'accept-encoding'  # Désactiver la compression pour éviter les erreurs de décodage
             }
             
             for key, value in request.headers.items():
@@ -103,6 +104,8 @@ class HttpProxy:
             headers['Host'] = target_host
             # Forcer HTTP/1.1 et connection close pour éviter les problèmes
             headers['Connection'] = 'close'
+            # Désactiver la compression
+            headers['Accept-Encoding'] = 'identity'
             
             async with ClientSession(connector=connector) as session:
                 async with session.request(request.method, backend_url, data=data, headers=headers, allow_redirects=False) as resp:
@@ -128,8 +131,12 @@ class HttpProxy:
                     
                     # Filtrer les headers de réponse problématiques
                     response_headers = {}
+                    skip_response_headers = {
+                        'connection', 'keep-alive', 'transfer-encoding',
+                        'content-encoding', 'content-length'
+                    }
                     for key, value in resp.headers.items():
-                        if key.lower() not in skip_headers:
+                        if key.lower() not in skip_response_headers:
                             response_headers[key] = value
                     
                     return web.Response(body=resp_data, status=resp.status, headers=response_headers)
