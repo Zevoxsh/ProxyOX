@@ -18,6 +18,9 @@ class ProxyManager:
         """Create and register a proxy of the specified type"""
         proxy_id = proxy_name or f"{proto}_{listen_host}_{listen_port}"
         
+        logger.info(f"🔥 CREATE_PROXY: proto={proto}, id={proxy_id}, {listen_host}:{listen_port} -> {target_host}:{target_port}")
+        logger.info(f"🔥 domain_routes={domain_routes}")
+        
         if proto == "tcp":
             await self.register_tcp(proxy_id, listen_host, listen_port, target_host, target_port, 
                                    use_tls, certfile, keyfile, backend_ssl)
@@ -51,11 +54,15 @@ class ProxyManager:
 
     async def register_http(self, proxy_id, listen_host, listen_port, target_host, target_port, backend_https=False, domain_routes=None):
         """Register an HTTP proxy"""
+        logger.info(f"🔥 REGISTER_HTTP CALLED: {proxy_id} on {listen_host}:{listen_port} -> {target_host}:{target_port}")
+        logger.info(f"🔥 Domain routes: {domain_routes}")
         if proxy_id in self.http_proxies:
+            logger.warning(f"HTTP proxy {proxy_id} already registered")
             return
         proxy = HttpProxy(listen_host, listen_port, target_host, target_port, backend_https, domain_routes)
         await proxy.start()
         self.http_proxies[proxy_id] = proxy
+        logger.info(f"✅ HTTP proxy {proxy_id} registered. Total HTTP proxies: {len(self.http_proxies)}")
 
     def _get_uptime(self, proxy):
         """Calculate proxy uptime in seconds"""

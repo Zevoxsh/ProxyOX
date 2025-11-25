@@ -352,17 +352,22 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('Données reçues:', data);
-                    console.log('Proxies:', data.proxies);
+                    
                     if (data.proxies && data.proxies.length > 0) {
-                        console.log('Premier proxy:', data.proxies[0]);
-                        console.log('Stats du premier proxy:', data.proxies[0].stats);
+                        // Logger TOUS les proxies une fois
+                        if (!window.proxiesLogged) {
+                            console.log('=== LISTE COMPLÈTE DES PROXIES ===');
+                            data.proxies.forEach((p, i) => {
+                                console.log(`Proxy ${i}: ${p.name} - Protocol: ${p.protocol} - Listen: ${p.listen}`);
+                                console.log('  Stats:', p.stats);
+                            });
+                            window.proxiesLogged = true;
+                        }
                         
                         // Chercher le proxy HTTP (reverse proxy)
                         const httpProxy = data.proxies.find(p => p.protocol === 'HTTP');
                         if (httpProxy) {
-                            console.log('Proxy HTTP trouvé:', httpProxy.name);
-                            console.log('Stats HTTP:', httpProxy.stats);
+                            console.log('🌐 HTTP Proxy:', httpProxy.name, 'Requêtes:', httpProxy.stats.requests);
                         }
                     }
                     updateDashboard(data);
