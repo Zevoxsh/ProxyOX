@@ -356,6 +356,14 @@
                     console.log('Proxies:', data.proxies);
                     if (data.proxies && data.proxies.length > 0) {
                         console.log('Premier proxy:', data.proxies[0]);
+                        console.log('Stats du premier proxy:', data.proxies[0].stats);
+                        
+                        // Chercher le proxy HTTP (reverse proxy)
+                        const httpProxy = data.proxies.find(p => p.protocol === 'HTTP');
+                        if (httpProxy) {
+                            console.log('Proxy HTTP trouvé:', httpProxy.name);
+                            console.log('Stats HTTP:', httpProxy.stats);
+                        }
                     }
                     updateDashboard(data);
                 } catch (error) {
