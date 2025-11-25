@@ -14,7 +14,7 @@ class ProxyManager:
 
     async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, 
                           use_tls=False, certfile=None, keyfile=None, backend_ssl=False, 
-                          backend_https=False, proxy_name=None):
+                          backend_https=False, proxy_name=None, domain_routes=None):
         """Create and register a proxy of the specified type"""
         proxy_id = proxy_name or f"{proto}_{listen_host}_{listen_port}"
         
@@ -24,7 +24,7 @@ class ProxyManager:
         elif proto == "udp":
             await self.register_udp(proxy_id, listen_host, listen_port, target_host, target_port)
         elif proto == "http":
-            await self.register_http(proxy_id, listen_host, listen_port, target_host, target_port, backend_https)
+            await self.register_http(proxy_id, listen_host, listen_port, target_host, target_port, backend_https, domain_routes)
         else:
             logger.error("Unknown proxy type", proto=proto)
 
@@ -49,11 +49,11 @@ class ProxyManager:
         await proxy.start()
         self.udp_proxies[proxy_id] = proxy
 
-    async def register_http(self, proxy_id, listen_host, listen_port, target_host, target_port, backend_https=False):
+    async def register_http(self, proxy_id, listen_host, listen_port, target_host, target_port, backend_https=False, domain_routes=None):
         """Register an HTTP proxy"""
         if proxy_id in self.http_proxies:
             return
-        proxy = HttpProxy(listen_host, listen_port, target_host, target_port, backend_https)
+        proxy = HttpProxy(listen_host, listen_port, target_host, target_port, backend_https, domain_routes)
         await proxy.start()
         self.http_proxies[proxy_id] = proxy
 

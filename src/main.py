@@ -45,23 +45,50 @@ async def main():
         listen_host, listen_port = fe["bind"].split(":")
         listen_port = int(listen_port)
 
-        backend_name = fe["default_backend"]
-        backend = next(s for s in config.get("backends", []) if s["name"] == backend_name)
-        target_host, target_port = backend["server"].split(":")
-        target_port = int(target_port)
+        backend_name = fe.get("default_backend")
+        backend = next((s for s in config.get("backends", []) if s["name"] == backend_name), None)
         
-        backend_https = backend.get("https", False)
+        target_host = None
+        target_port = None
+        backend_https = False
+        
+        if backend:
+            target_host, target_port = backend["server"].split(":")
+            target_port = int(target_port)
+            backend_https = backend.get("https", False)
+        
         use_tls = fe.get("tls", False)
         certfile = fe.get("certfile")
         keyfile = fe.get("keyfile")
         backend_ssl = fe.get("backend_ssl", False) or backend_https
         proxy_name = fe.get("name", f"{mode}_{listen_host}_{listen_port}")
+        
+        # Support pour les routes de domaines (reverse proxy)
+        domain_routes = None
+        if mode == "http" and "domain_routes" in fe:
+            domain_routes = {}
+            for route in fe["domain_routes"]:
+                domain = route["domain"]
+                route_backend_name = route["backend"]
+                route_backend = next((s for s in config.get("backends", []) if s["name"] == route_backend_name), None)
+                if route_backend:
+                    route_host, route_port = route_backend["server"].split(":")
+                    domain_routes[domain] = {
+                        "host": route_host,
+                        "port": int(route_port),
+                        "https": route_backend.get("https", False)
+                    }
 
         try:
             await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, 
-                                      use_tls, certfile, keyfile, backend_ssl, backend_https, proxy_name)
+                                      use_tls, certfile, keyfile, backend_ssl, backend_https, proxy_name, domain_routes)
             backend_protocol = "HTTPS" if (backend_ssl or backend_https) else "HTTP"
-            print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port} ({backend_protocol})")
+            if domain_routes:
+                print(f"✅ {mode.upper()} reverse proxy: {listen_host}:{listen_port} with {len(domain_routes)} domain routes")
+            elif target_host:
+                print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port} ({backend_protocol})")
+            else:
+                print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} (routing only)")
         except Exception as e:
             print(f"❌ FAILED to start {mode.upper()} proxy on {listen_host}:{listen_port}: {e}")
 

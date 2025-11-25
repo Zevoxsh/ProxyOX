@@ -5,36 +5,66 @@ global:
   max-connections: 100
 
 frontends:
-  # Port 80 - TCP avec SSL vers backend (convertit HTTP → HTTPS)
-  - name: http-redirect
+  # Port 80 - Reverse proxy HTTP avec routage par nom de domaine
+  - name: http-reverse-proxy
     bind: 0.0.0.0:80
-    mode: tcp
-    default_backend: tcp-https-server
-    backend_ssl: true  # ← Active SSL vers backend (HTTP → HTTPS)
-
-  # Port 443 - TCP relay simple (HTTPS → HTTPS passthrough)
-  - name: tcp-fe
-    bind: 0.0.0.0:443
-    mode: tcp
-    default_backend: tcp-https-server
-    backend_ssl: false  # ← Pas de SSL, juste relay (HTTPS → HTTPS)
-  
-  - name: udp-fe
-    bind: 127.0.0.1:9001
-    mode: udp
-    default_backend: udp-server
-
-  - name: http-fe
-    bind: 127.0.0.1:8081
     mode: http
-    default_backend: http-server
+    domain_routes:
+      - domain: appache.innovtech.local
+        backend: websrv
+      - domain: nc.innovtech.local
+        backend: ncsrv-http
+      - domain: wings.innovtech.local
+        backend: wingssrv
+      - domain: panel.innovtech.local
+        backend: panelsrv-http
+    # Backend par défaut si aucun domaine ne correspond
+    default_backend: websrv
+
+  # Port 443 - Reverse proxy HTTPS avec routage par nom de domaine (SNI)
+  - name: https-reverse-proxy
+    bind: 0.0.0.0:443
+    mode: http
+    domain_routes:
+    default_backend: websrv
+
+  # Port 8080 - TCP proxy direct vers wingssrv (accès direct si besoin)
+  - name: wings-direct
+    bind: 0.0.0.0:8080
+    mode: tcp
+    default_backend: wingssrv
+    backend_ssl: false
+
+  # Port 9191 - TCP proxy vers ncsrv
+  - name: nc
+    bind: 0.0.0.0:9191
+    mode: tcp
+    default_backend: ncsrv-http
+    backend_ssl: false
+
+  # Port 7171 - TCP proxy direct vers panelsrv (accès direct si besoin)
+  - name: panel-direct
+    bind: 0.0.0.0:7171
+    mode: tcp
+    default_backend: panelsrv-http
+    backend_ssl: false
 
 backends:
-  - name: tcp-https-server
-    server: 10.10.0.201:443
+  # Backends HTTP (port 80)
+  - name: websrv
+    server: 192.168.100.206:80
+    https: false
 
-  - name: udp-server
-    server: 10.10.0.201:9443
+  - name: wingssrv
+    server: 192.168.100.203:8080
+    https: false
 
-  - name: http-server
-    server: 10.10.0.200:8006
+  # NextCloud - Si votre NC a une interface web HTTP
+  - name: ncsrv-http
+    server: 192.168.100.204:80
+    https: false
+
+  # Panel - Si votre panel a une interface web HTTP
+  - name: panelsrv-http
+    server: 192.168.100.203:80
+    https: false

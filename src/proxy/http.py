@@ -8,12 +8,13 @@ from collections import deque
 logger = logging.getLogger("http_proxy")
 
 class HttpProxy:
-    def __init__(self, listen_host, listen_port, target_host, target_port, backend_https=False):
+    def __init__(self, listen_host, listen_port, target_host=None, target_port=None, backend_https=False, domain_routes=None):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
         self.target_port = target_port
         self.backend_https = backend_https  # Support HTTPS vers backend
+        self.domain_routes = domain_routes or {}  # Routes basées sur les domaines
         self.runner = None
         self.bytes_in = 0
         self.bytes_out = 0
@@ -49,13 +50,34 @@ class HttpProxy:
             data = await request.read()
             self.bytes_in += len(data)
             
+            # Déterminer le backend en fonction du nom de domaine (Host header)
+            host_header = request.headers.get('Host', '').split(':')[0]  # Enlever le port si présent
+            
+            # Chercher une route correspondante au domaine
+            backend_config = None
+            if host_header and self.domain_routes:
+                backend_config = self.domain_routes.get(host_header)
+            
+            # Si aucune route trouvée, utiliser le backend par défaut
+            if backend_config:
+                target_host = backend_config['host']
+                target_port = backend_config['port']
+                backend_https = backend_config.get('https', False)
+                logger.info(f"Routing {host_header} to {target_host}:{target_port} (HTTPS: {backend_https})")
+            elif self.target_host:
+                target_host = self.target_host
+                target_port = self.target_port
+                backend_https = self.backend_https
+            else:
+                return web.Response(text="No backend configured for this domain", status=502)
+            
             # Construire l'URL du backend (HTTP ou HTTPS)
-            protocol = "https" if self.backend_https else "http"
-            backend_url = f"{protocol}://{self.target_host}:{self.target_port}{request.rel_url}"
+            protocol = "https" if backend_https else "http"
+            backend_url = f"{protocol}://{target_host}:{target_port}{request.rel_url}"
             
             # Créer une session avec SSL désactivé pour les certificats auto-signés
             connector = None
-            if self.backend_https:
+            if backend_https:
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
@@ -65,7 +87,7 @@ class HttpProxy:
             headers = dict(request.headers)
             if 'Host' in headers:
                 # Remplacer par le host du backend
-                headers['Host'] = f"{self.target_host}:{self.target_port}"
+                headers['Host'] = f"{target_host}:{target_port}"
             
             async with ClientSession(connector=connector) as session:
                 async with session.request(request.method, backend_url, data=data, headers=headers) as resp:
