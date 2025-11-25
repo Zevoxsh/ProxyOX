@@ -262,30 +262,6 @@ backends:
     server: 192.168.1.50:80
 ```
 
-### Exemple 3 : Load Balancing Simple
-
-Créez plusieurs frontends pointant vers différents backends :
-
-```yaml
-frontends:
-  - name: lb-web1
-    bind: 0.0.0.0:8081
-    mode: http
-    default_backend: web-server-1
-
-  - name: lb-web2
-    bind: 0.0.0.0:8082
-    mode: http
-    default_backend: web-server-2
-
-backends:
-  - name: web-server-1
-    server: 192.168.1.10:80
-  
-  - name: web-server-2
-    server: 192.168.1.11:80
-```
-
 ---
 
 ## 📊 Dashboard et Monitoring
