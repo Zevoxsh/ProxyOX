@@ -628,12 +628,11 @@
             <div class="chart-grid">
                 <div class="chart-card">
                     <div class="chart-header">
-                        <h3 class="chart-title">All Proxies - Traffic Overview</h3>
+                        <h3 class="chart-title">Traffic Overview - <span id="selectedProxyName">All Proxies</span></h3>
                         <div class="chart-controls">
-                            <button class="chart-btn active" data-period="1h">1H</button>
-                            <button class="chart-btn" data-period="6h">6H</button>
-                            <button class="chart-btn" data-period="24h">24H</button>
-                            <button class="chart-btn" data-period="7d">7D</button>
+                            <select id="proxySelector" style="padding: 6px 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; cursor: pointer;">
+                                <option value="all">All Proxies (Summary)</option>
+                            </select>
                         </div>
                     </div>
                     <div class="chart-container">
@@ -701,6 +700,8 @@
         let proxyCharts = {};
         let historicalData = {};
         let lastRequestCount = 0;
+        let allProxies = [];
+        let selectedProxy = 'all';
 
         // WebSocket Connection
         function connectWebSocket() {
@@ -715,6 +716,7 @@
                 const data = JSON.parse(event.data);
                 console.log('📊 Dashboard received data:', data);
                 console.log('Proxies count:', data.proxies?.length);
+                allProxies = data.proxies || [];
                 updateDashboard(data);
             };
 
@@ -743,6 +745,9 @@
             // Update stats cards
             updateStatsCards(proxies);
             
+            // Update proxy selector
+            updateProxySelector(proxies);
+            
             // Update charts
             updateMainChart(proxies);
             updateProtocolChart(proxies);
@@ -752,6 +757,33 @@
             
             // Update domains
             updateDomains(proxies);
+        }
+
+        function updateProxySelector(proxies) {
+            const selector = document.getElementById('proxySelector');
+            const currentValue = selector.value;
+            
+            // Reconstruire les options
+            selector.innerHTML = '<option value="all">All Proxies (Summary)</option>';
+            
+            proxies.forEach(proxy => {
+                const option = document.createElement('option');
+                option.value = proxy.name;
+                option.textContent = `${proxy.name} (${proxy.protocol})`;
+                selector.appendChild(option);
+            });
+            
+            // Restaurer la sélection
+            selector.value = currentValue;
+            selectedProxy = currentValue;
+            
+            // Event listener
+            selector.onchange = (e) => {
+                selectedProxy = e.target.value;
+                document.getElementById('selectedProxyName').textContent = 
+                    selectedProxy === 'all' ? 'All Proxies' : selectedProxy;
+                updateMainChart(allProxies);
+            };
         }
 
         function updateStatsCards(proxies) {
@@ -810,35 +842,67 @@
             // Créer les labels pour les 10 dernières secondes
             const labels = Array.from({ length: 10 }, (_, i) => (10 - i) + 's');
 
-            const datasets = proxies.map((proxy, index) => {
-                const data = historicalData[proxy.name] || [];
-                // Créer un tableau de 10 valeurs (1 par seconde)
-                const values = Array(10).fill(null);
+            let datasets = [];
+            
+            if (selectedProxy === 'all') {
+                // Mode agrégé : une seule courbe pour la somme de tous les proxies
+                const aggregatedData = Array(10).fill(0);
                 
-                // Remplir avec les valeurs des 10 dernières secondes
-                data.forEach(point => {
-                    const secondsAgo = Math.floor((now - point.timestamp) / 1000);
-                    if (secondsAgo < 10) {
-                        values[9 - secondsAgo] = point.value;
-                    }
+                proxies.forEach(proxy => {
+                    const data = historicalData[proxy.name] || [];
+                    data.forEach(point => {
+                        const secondsAgo = Math.floor((now - point.timestamp) / 1000);
+                        if (secondsAgo < 10) {
+                            aggregatedData[9 - secondsAgo] += point.value;
+                        }
+                    });
                 });
                 
-                return {
-                    label: proxy.name,
-                    data: values,
-                    borderColor: colors[index % colors.length],
-                    backgroundColor: colors[index % colors.length] + '10',
-                    borderWidth: 2.5,
+                datasets = [{
+                    label: 'Total Traffic',
+                    data: aggregatedData,
+                    borderColor: '#5b8def',
+                    backgroundColor: '#5b8def10',
+                    borderWidth: 3,
                     tension: 0.4,
                     fill: true,
                     pointRadius: 0,
                     pointHoverRadius: 6,
                     pointHoverBorderWidth: 2,
-                    pointHoverBackgroundColor: colors[index % colors.length],
-                    pointHoverBorderColor: '#0a0e1a',
-                    spanGaps: true
-                };
-            });
+                    pointHoverBackgroundColor: '#5b8def',
+                    pointHoverBorderColor: '#0a0e1a'
+                }];
+            } else {
+                // Mode individuel : afficher uniquement le proxy sélectionné
+                const proxy = proxies.find(p => p.name === selectedProxy);
+                if (proxy) {
+                    const data = historicalData[selectedProxy] || [];
+                    const values = Array(10).fill(null);
+                    
+                    data.forEach(point => {
+                        const secondsAgo = Math.floor((now - point.timestamp) / 1000);
+                        if (secondsAgo < 10) {
+                            values[9 - secondsAgo] = point.value;
+                        }
+                    });
+                    
+                    datasets = [{
+                        label: selectedProxy,
+                        data: values,
+                        borderColor: '#5b8def',
+                        backgroundColor: '#5b8def10',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 2,
+                        pointHoverRadius: 6,
+                        pointHoverBorderWidth: 2,
+                        pointHoverBackgroundColor: '#5b8def',
+                        pointHoverBorderColor: '#0a0e1a',
+                        spanGaps: true
+                    }];
+                }
+            }
 
             if (mainChart) {
                 mainChart.data.labels = labels;
@@ -857,17 +921,7 @@
                         },
                         plugins: {
                             legend: {
-                                display: true,
-                                position: 'bottom',
-                                labels: {
-                                    color: '#94a3b8',
-                                    usePointStyle: true,
-                                    padding: 15,
-                                    font: {
-                                        size: 11,
-                                        weight: '500'
-                                    }
-                                }
+                                display: false
                             },
                             tooltip: {
                                 enabled: true,
@@ -891,29 +945,31 @@
                                         return context[0].label;
                                     },
                                     label: function(context) {
-                                        const label = context.dataset.label || '';
                                         const value = context.parsed.y;
                                         if (value === null) return null;
                                         
-                                        const proxy = proxies.find(p => p.name === label);
-                                        const isHTTP = proxy && proxy.protocol === 'HTTP';
-                                        const unit = isHTTP ? ' requests' : ' connections';
-                                        
-                                        return label + ': ' + formatNumber(value) + unit;
+                                        if (selectedProxy === 'all') {
+                                            return 'Total: ' + formatNumber(value) + ' events';
+                                        } else {
+                                            const proxy = proxies.find(p => p.name === selectedProxy);
+                                            const isHTTP = proxy && proxy.protocol === 'HTTP';
+                                            const unit = isHTTP ? ' requests' : ' connections';
+                                            return selectedProxy + ': ' + formatNumber(value) + unit;
+                                        }
                                     },
                                     afterLabel: function(context) {
-                                        // Afficher des infos supplémentaires
-                                        const proxy = proxies.find(p => p.name === context.dataset.label);
-                                        if (proxy && proxy.stats) {
-                                            const stats = proxy.stats;
-                                            const bytesTotal = (stats.bytes_sent || 0) + (stats.bytes_received || 0);
-                                            return 'Data: ' + formatBytes(bytesTotal);
+                                        if (selectedProxy !== 'all') {
+                                            const proxy = proxies.find(p => p.name === selectedProxy);
+                                            if (proxy && proxy.stats) {
+                                                const stats = proxy.stats;
+                                                const bytesTotal = (stats.bytes_sent || 0) + (stats.bytes_received || 0);
+                                                return 'Data: ' + formatBytes(bytesTotal);
+                                            }
                                         }
                                         return '';
                                     }
                                 },
                                 filter: function(tooltipItem) {
-                                    // Ne pas afficher les valeurs null
                                     return tooltipItem.parsed.y !== null;
                                 }
                             }
