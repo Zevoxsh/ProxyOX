@@ -474,21 +474,21 @@
                 return `
                     <div class="proxy-card">
                         <div class="proxy-header">
-                            <div class="proxy-name">${proxy.name}</div>
-                            <div class="proxy-status ${proxy.status}">${proxy.status === 'running' ? 'Actif' : 'Arrêté'}</div>
+                            <div class="proxy-name">${proxy.name || 'Unknown'}</div>
+                            <div class="proxy-status ${proxy.status || 'stopped'}">${proxy.status === 'running' ? 'Actif' : 'Arrêté'}</div>
                         </div>
                         <div class="proxy-info">
                             <div class="proxy-info-item">
                                 <span class="proxy-info-label">Mode</span>
-                                <span class="proxy-info-value">${proxy.mode.toUpperCase()}</span>
+                                <span class="proxy-info-value">${(proxy.mode || 'unknown').toUpperCase()}</span>
                             </div>
                             <div class="proxy-info-item">
                                 <span class="proxy-info-label">Adresse</span>
-                                <span class="proxy-info-value">${proxy.bind}</span>
+                                <span class="proxy-info-value">${proxy.bind || 'N/A'}</span>
                             </div>
                             <div class="proxy-info-item">
                                 <span class="proxy-info-label">Connexions</span>
-                                <span class="proxy-info-value">${proxy.active_connections} / ${proxy.total_connections}</span>
+                                <span class="proxy-info-value">${proxy.active_connections || 0} / ${proxy.total_connections || 0}</span>
                             </div>
                             <div class="proxy-info-item">
                                 <span class="proxy-info-label">Données</span>
