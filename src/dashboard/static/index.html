@@ -405,10 +405,22 @@
         }
 
         function updateStats(data, proxies) {
-            const totalConnections = proxies.reduce((sum, p) => sum + (p.total_connections || 0), 0);
-            const activeConnections = proxies.reduce((sum, p) => sum + (p.active_connections || 0), 0);
-            const totalBytesIn = proxies.reduce((sum, p) => sum + (p.bytes_in || 0), 0);
-            const totalBytesOut = proxies.reduce((sum, p) => sum + (p.bytes_out || 0), 0);
+            const totalConnections = proxies.reduce((sum, p) => {
+                const stats = p.stats || {};
+                return sum + (stats.total_connections || p.total_connections || 0);
+            }, 0);
+            const activeConnections = proxies.reduce((sum, p) => {
+                const stats = p.stats || {};
+                return sum + (stats.active_connections || p.active_connections || 0);
+            }, 0);
+            const totalBytesIn = proxies.reduce((sum, p) => {
+                const stats = p.stats || {};
+                return sum + (stats.bytes_received || p.bytes_in || 0);
+            }, 0);
+            const totalBytesOut = proxies.reduce((sum, p) => {
+                const stats = p.stats || {};
+                return sum + (stats.bytes_sent || p.bytes_out || 0);
+            }, 0);
 
             const statsHTML = `
                 <div class="stats-grid">
@@ -463,11 +475,21 @@
             }
 
             const proxiesHTML = proxies.map(proxy => {
+                // Extraire les stats
+                const stats = proxy.stats || {};
+                const activeConn = stats.active_connections || 0;
+                const totalConn = stats.total_connections || 0;
+                const bytesIn = stats.bytes_received || 0;
+                const bytesOut = stats.bytes_sent || 0;
+                const requests = stats.requests || 0;
+                
                 // Mettre à jour l'historique du graphique
                 if (!chartData[proxy.name]) {
                     chartData[proxy.name] = [];
                 }
-                chartData[proxy.name].push(proxy.connections_per_second || proxy.active_connections || 0);
+                // Utiliser les requêtes pour HTTP, connexions pour TCP/UDP
+                const currentValue = requests > 0 ? requests : activeConn;
+                chartData[proxy.name].push(currentValue);
                 if (chartData[proxy.name].length > 50) {
                     chartData[proxy.name].shift();
                 }
@@ -486,20 +508,31 @@
                         </div>
                         <div class="proxy-info">
                             <div class="proxy-info-item">
-                                <span class="proxy-info-label">Mode</span>
-                                <span class="proxy-info-value">${(proxy.mode || 'unknown').toUpperCase()}</span>
+                                <span class="proxy-info-label">Protocole</span>
+                                <span class="proxy-info-value">${(proxy.protocol || 'unknown').toUpperCase()}</span>
                             </div>
                             <div class="proxy-info-item">
-                                <span class="proxy-info-label">Adresse</span>
-                                <span class="proxy-info-value">${proxy.bind || 'N/A'}</span>
+                                <span class="proxy-info-label">Écoute</span>
+                                <span class="proxy-info-value">${proxy.listen || 'N/A'}</span>
                             </div>
+                            <div class="proxy-info-item">
+                                <span class="proxy-info-label">Cible</span>
+                                <span class="proxy-info-value">${proxy.target || 'N/A'}</span>
+                            </div>
+                            ${proxy.protocol === 'HTTP' ? `
+                            <div class="proxy-info-item">
+                                <span class="proxy-info-label">Requêtes</span>
+                                <span class="proxy-info-value">${requests}</span>
+                            </div>
+                            ` : `
                             <div class="proxy-info-item">
                                 <span class="proxy-info-label">Connexions</span>
-                                <span class="proxy-info-value">${proxy.active_connections || 0} / ${proxy.total_connections || 0}</span>
+                                <span class="proxy-info-value">${activeConn} / ${totalConn}</span>
                             </div>
+                            `}
                             <div class="proxy-info-item">
                                 <span class="proxy-info-label">Données</span>
-                                <span class="proxy-info-value">${formatBytes((proxy.bytes_in || 0) + (proxy.bytes_out || 0))}</span>
+                                <span class="proxy-info-value">${formatBytes(bytesIn + bytesOut)}</span>
                             </div>
                         </div>
                         <div class="proxy-chart">
