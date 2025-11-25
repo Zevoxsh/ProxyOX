@@ -67,11 +67,13 @@ class Dashboard:
     @web.middleware
     async def auth_middleware(self, request, handler):
         """Middleware to check authentication on all requests"""
-        # Exclure uniquement les fichiers statiques de l'authentification
-        if request.path.startswith('/assets/') or request.path.startswith('/static/'):
+        # Exclure les fichiers statiques et le WebSocket de l'authentification
+        if (request.path.startswith('/assets/') or 
+            request.path.startswith('/static/') or
+            request.path == '/ws'):
             return await handler(request)
         
-        # Authentification requise pour tout le reste (page principale + APIs + WebSocket)
+        # Authentification requise pour la page principale et les APIs
         if not self.check_auth(request):
             return web.Response(
                 status=401,
