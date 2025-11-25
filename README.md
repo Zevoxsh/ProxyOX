@@ -363,22 +363,6 @@ INFO:http_proxy:Routing example.com to 192.168.1.10:80 (HTTPS: False)
 
 **Problème de domaine** : Si vous voyez `Available routes: None`, vérifiez que `domain_routes` est bien configuré dans `config.yaml`.
 
-### Erreur "Domaine non approuvé" (NextCloud, etc.)
-
-Certaines applications vérifient le header `Host`. Ajoutez le domaine dans leur configuration :
-
-**NextCloud** :
-```bash
-nano /var/www/nextcloud/config/config.php
-```
-
-```php
-'trusted_domains' => array (
-  0 => 'localhost',
-  1 => 'nextcloud.example.com',  // Ajoutez ici
-),
-```
-
 ### Erreur de décodage (ERR_CONTENT_DECODING_FAILED)
 
 ProxyOX désactive automatiquement la compression. Si l'erreur persiste, vérifiez que vous utilisez la dernière version :
