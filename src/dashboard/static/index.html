@@ -391,6 +391,12 @@
         function updateDashboard(data) {
             const proxies = data.proxies || [];
             
+            // Supprimer le message de chargement si présent
+            const loading = document.querySelector('.loading');
+            if (loading) {
+                loading.remove();
+            }
+            
             // Mettre à jour les statistiques globales
             updateStats(data, proxies);
             
@@ -434,7 +440,8 @@
             if (existingStats) {
                 existingStats.outerHTML = statsHTML;
             } else {
-                document.getElementById('app').innerHTML = statsHTML + document.getElementById('app').innerHTML;
+                const app = document.getElementById('app');
+                app.insertAdjacentHTML('afterbegin', statsHTML);
             }
         }
 
