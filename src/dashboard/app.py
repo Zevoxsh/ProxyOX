@@ -67,6 +67,15 @@ class Dashboard:
     @web.middleware
     async def auth_middleware(self, request, handler):
         """Middleware to check authentication on all requests"""
+        # Exclure les fichiers statiques ET les APIs de l'authentification
+        # pour permettre au dashboard React de fonctionner
+        if (request.path.startswith('/api/') or 
+            request.path.startswith('/assets/') or 
+            request.path.startswith('/static/') or
+            request.path == '/ws'):
+            return await handler(request)
+        
+        # Authentification uniquement sur la page principale
         if not self.check_auth(request):
             return web.Response(
                 status=401,
