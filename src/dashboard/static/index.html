@@ -505,8 +505,8 @@
                 if (!chartData[proxy.name]) {
                     chartData[proxy.name] = [];
                 }
-                // Utiliser les requêtes pour HTTP, connexions pour TCP/UDP
-                const currentValue = requests > 0 ? requests : activeConn;
+                // Utiliser les requêtes pour HTTP, total_connections pour TCP/UDP (pas active qui retombe à 0)
+                const currentValue = requests > 0 ? requests : totalConn;
                 chartData[proxy.name].push(currentValue);
                 if (chartData[proxy.name].length > 50) {
                     chartData[proxy.name].shift();
@@ -517,6 +517,21 @@
                     const height = (value / maxValue) * 100;
                     return `<div class="chart-bar" style="height: ${height}%"></div>`;
                 }).join('');
+                
+                // Stats par domaine pour les reverse proxies
+                let domainStatsHTML = '';
+                if (proxy.protocol === 'HTTP' && stats.domains) {
+                    domainStatsHTML = '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;"><strong style="color: #2d3748; font-size: 13px;">Stats par domaine:</strong>';
+                    for (const [domain, domainStats] of Object.entries(stats.domains)) {
+                        domainStatsHTML += `
+                            <div class="proxy-info-item" style="font-size: 12px; padding: 4px 0;">
+                                <span class="proxy-info-label">${domain}</span>
+                                <span class="proxy-info-value">${domainStats.requests} req (${formatBytes(domainStats.bytes_sent)})</span>
+                            </div>
+                        `;
+                    }
+                    domainStatsHTML += '</div>';
+                }
 
                 return `
                     <div class="proxy-card">
@@ -553,6 +568,7 @@
                                 <span class="proxy-info-value">${formatBytes(bytesIn + bytesOut)}</span>
                             </div>
                         </div>
+                        ${domainStatsHTML}
                         <div class="proxy-chart">
                             ${chartBars}
                         </div>

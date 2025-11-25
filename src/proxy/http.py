@@ -31,6 +31,7 @@ class HttpProxy:
         self.total_bytes_transferred = 0
         self.avg_response_time = 0
         self.method_stats = {}
+        self.domain_stats = {}  # Stats par domaine
 
     async def handle_request(self, request):
         self.active_requests += 1
@@ -60,6 +61,16 @@ class HttpProxy:
             backend_config = None
             if host_header and self.domain_routes:
                 backend_config = self.domain_routes.get(host_header)
+            
+            # Tracker les stats par domaine
+            domain_key = host_header if host_header else "unknown"
+            if domain_key not in self.domain_stats:
+                self.domain_stats[domain_key] = {
+                    'requests': 0,
+                    'bytes_sent': 0,
+                    'bytes_received': 0
+                }
+            self.domain_stats[domain_key]['requests'] += 1
             
             # Si aucune route trouvée, utiliser le backend par défaut
             if backend_config:
@@ -113,6 +124,10 @@ class HttpProxy:
                     self.bytes_out += len(resp_data)
                     
                     duration = time.time() - req_start
+                    
+                    # Tracker les bytes par domaine
+                    self.domain_stats[domain_key]['bytes_sent'] += len(resp_data)
+                    self.domain_stats[domain_key]['bytes_received'] += len(data)
                     
                     # Enregistrer la requête
                     self.request_history.append({

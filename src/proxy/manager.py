@@ -116,6 +116,18 @@ class ProxyManager:
             else:
                 target_display = f"{p.target_host}:{p.target_port}"
                 
+            stats = {
+                "requests": p.total_requests,
+                "responses": p.total_requests - p.failed_requests,
+                "avg_response_time": p.avg_response_time,
+                "bytes_sent": p.bytes_out,
+                "bytes_received": p.bytes_in,
+            }
+            
+            # Ajouter les stats par domaine si disponibles
+            if hasattr(p, 'domain_stats') and p.domain_stats:
+                stats["domains"] = p.domain_stats
+                
             proxies.append({
                 "name": proxy_id,
                 "protocol": "HTTP",
@@ -124,13 +136,7 @@ class ProxyManager:
                 "backend_ssl": getattr(p, 'backend_https', False),
                 "status": p.status,
                 "uptime": self._get_uptime(p),
-                "stats": {
-                    "requests": p.total_requests,
-                    "responses": p.total_requests - p.failed_requests,
-                    "avg_response_time": p.avg_response_time,
-                    "bytes_sent": p.bytes_out,
-                    "bytes_received": p.bytes_in,
-                }
+                "stats": stats
             })
         
         return {"proxies": proxies}
