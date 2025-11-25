@@ -53,6 +53,9 @@ class HttpProxy:
             # Déterminer le backend en fonction du nom de domaine (Host header)
             host_header = request.headers.get('Host', '').split(':')[0]  # Enlever le port si présent
             
+            # Log pour debug
+            logger.info(f"[HTTP] Request from {host_header} - Available routes: {list(self.domain_routes.keys()) if self.domain_routes else 'None'}")
+            
             # Chercher une route correspondante au domaine
             backend_config = None
             if host_header and self.domain_routes:
@@ -131,9 +134,15 @@ class HttpProxy:
         self.start_time = time.time()
         self.status = "running"
         asyncio.create_task(self._update_history())
-        logger.info(f"HTTP proxy started: {self.listen_host}:{self.listen_port} -> {self.target_host}:{self.target_port}")
-    
-    async def _update_history(self):
+        
+        # Log des routes configurées
+        if self.domain_routes:
+            logger.info(f"HTTP proxy started with {len(self.domain_routes)} domain routes:")
+            for domain, config in self.domain_routes.items():
+                logger.info(f"  - {domain} -> {config['host']}:{config['port']} (HTTPS: {config.get('https', False)})")
+        else:
+            logger.info(f"HTTP proxy started: {self.listen_host}:{self.listen_port} -> {self.target_host}:{self.target_port}")
+        asyncio.create_task(self._update_history())
         """Met à jour l'historique toutes les secondes"""
         last_bytes_in = 0
         last_bytes_out = 0

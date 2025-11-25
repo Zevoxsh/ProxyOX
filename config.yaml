@@ -26,7 +26,15 @@ frontends:
     bind: 0.0.0.0:443
     mode: http
     domain_routes:
-    default_backend: websrv
+      - domain: appache.innovtech.local
+        backend: websrv-https
+      - domain: nc.innovtech.local
+        backend: ncsrv-https
+      - domain: wings.innovtech.local
+        backend: wingssrv-https
+      - domain: panel.innovtech.local
+        backend: panelsrv-https
+    default_backend: websrv-https
 
   # Port 8080 - TCP proxy direct vers wingssrv (accès direct si besoin)
   - name: wings-direct
@@ -68,3 +76,20 @@ backends:
   - name: panelsrv-http
     server: 192.168.100.203:80
     https: false
+
+  # Backends HTTPS
+  - name: websrv-https
+    server: 192.168.100.206:443
+    https: true
+
+  - name: ncsrv-https
+    server: 192.168.100.204:443
+    https: true
+
+  - name: wingssrv-https
+    server: 192.168.100.203:443
+    https: true
+
+  - name: panelsrv-https
+    server: 192.168.100.203:443
+    https: true
