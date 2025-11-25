@@ -494,6 +494,111 @@
             font-weight: 600;
         }
 
+        /* Alerts System */
+        .alert {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid;
+            animation: slideIn 0.3s ease-out;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .alert.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-left-color: #ef4444;
+            color: #fecaca;
+        }
+
+        .alert.warning {
+            background: rgba(251, 146, 60, 0.1);
+            border-left-color: #fb923c;
+            color: #fed7aa;
+        }
+
+        .alert.success {
+            background: rgba(34, 197, 94, 0.1);
+            border-left-color: #22c55e;
+            color: #86efac;
+        }
+
+        .alert.info {
+            background: rgba(91, 141, 239, 0.1);
+            border-left-color: #5b8def;
+            color: #bfdbfe;
+        }
+
+        .alert-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+
+        .alert-message {
+            font-size: 12px;
+            opacity: 0.85;
+        }
+
+        .alert-close {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .alert-close:hover {
+            opacity: 1;
+        }
+
+        /* Control Buttons */
+        .control-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover:not(:disabled) {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            transform: scale(1.1);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .chart-grid {
@@ -550,6 +655,18 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="exportStats('json'); return false;">
+                            <span class="nav-icon">📥</span>
+                            <span>Export JSON</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="exportStats('csv'); return false;">
+                            <span class="nav-icon">📋</span>
+                            <span>Export CSV</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="#settings" class="nav-link">
                             <span class="nav-icon">⚙️</span>
                             <span>Settings</span>
@@ -574,6 +691,9 @@
                     </div>
                 </div>
             </header>
+
+            <!-- Alerts Section -->
+            <div id="alertsContainer" style="margin-bottom: 20px;"></div>
 
             <!-- Stats Cards -->
             <div class="stats-grid">
@@ -628,11 +748,16 @@
             <div class="chart-grid">
                 <div class="chart-card">
                     <div class="chart-header">
-                        <h3 class="chart-title">Traffic Overview - <span id="selectedProxyName">All Proxies</span></h3>
+                        <h3 class="chart-title">Traffic Overview - <span id="selectedProxyName">Top 10 Proxies</span></h3>
                         <div class="chart-controls">
-                            <select id="proxySelector" style="padding: 6px 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; cursor: pointer;">
-                                <option value="all">All Proxies (Summary)</option>
+                            <select id="chartMode" style="padding: 6px 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; cursor: pointer; margin-right: 8px;">
+                                <option value="top10">Top 10 Active</option>
+                                <option value="all-aggregate">All (Aggregated)</option>
+                                <option value="http-only">HTTP Only</option>
+                                <option value="tcp-only">TCP Only</option>
+                                <option value="custom">Select Proxies...</option>
                             </select>
+                            <button id="toggleRealtime" class="chart-btn active" style="padding: 6px 12px;">⏸️ Pause</button>
                         </div>
                     </div>
                     <div class="chart-container">
@@ -646,6 +771,18 @@
                     </div>
                     <div class="chart-container small">
                         <canvas id="protocolChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Multi-select Modal -->
+            <div id="proxySelectModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+                <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="margin-bottom: 16px; color: var(--text-primary);">Select Proxies to Display</h3>
+                    <div id="proxyCheckboxes" style="margin-bottom: 16px;"></div>
+                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                        <button onclick="closeProxyModal()" style="padding: 8px 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); cursor: pointer;">Cancel</button>
+                        <button onclick="applyProxySelection()" style="padding: 8px 16px; background: var(--accent-blue); border: none; border-radius: 6px; color: white; cursor: pointer;">Apply</button>
                     </div>
                 </div>
             </div>
@@ -670,7 +807,9 @@
                                 <th>Status</th>
                                 <th>Requests/Conn</th>
                                 <th>Data Transfer</th>
+                                <th>Limits</th>
                                 <th>Uptime</th>
+                                <th>Controls</th>
                                 <th>Activity</th>
                             </tr>
                         </thead>
@@ -701,7 +840,9 @@
         let historicalData = {};
         let lastRequestCount = 0;
         let allProxies = [];
-        let selectedProxy = 'all';
+        let chartMode = 'top10';
+        let selectedProxies = [];
+        let realtimePaused = false;
 
         // WebSocket Connection
         function connectWebSocket() {
@@ -713,9 +854,8 @@
             };
 
             ws.onmessage = (event) => {
+                if (realtimePaused) return;
                 const data = JSON.parse(event.data);
-                console.log('📊 Dashboard received data:', data);
-                console.log('Proxies count:', data.proxies?.length);
                 allProxies = data.proxies || [];
                 updateDashboard(data);
             };
@@ -745,9 +885,6 @@
             // Update stats cards
             updateStatsCards(proxies);
             
-            // Update proxy selector
-            updateProxySelector(proxies);
-            
             // Update charts
             updateMainChart(proxies);
             updateProtocolChart(proxies);
@@ -757,33 +894,211 @@
             
             // Update domains
             updateDomains(proxies);
+            
+            // Check for alerts
+            checkAlerts(proxies);
         }
 
-        function updateProxySelector(proxies) {
-            const selector = document.getElementById('proxySelector');
-            const currentValue = selector.value;
-            
-            // Reconstruire les options
-            selector.innerHTML = '<option value="all">All Proxies (Summary)</option>';
-            
+        // Alert system
+        const alerts = new Map();
+        const alertThresholds = {
+            failureRate: 0.1,  // 10% de connexions échouées
+            downProxy: true,   // Alerte si proxy stopped
+            highTraffic: 10000, // 10k requêtes/connexions
+            noTraffic: 300     // 5 minutes sans trafic (300s)
+        };
+
+        function checkAlerts(proxies) {
             proxies.forEach(proxy => {
-                const option = document.createElement('option');
-                option.value = proxy.name;
-                option.textContent = `${proxy.name} (${proxy.protocol})`;
-                selector.appendChild(option);
+                const stats = proxy.stats || {};
+                const alertKey = proxy.name;
+
+                // Alert: Proxy down
+                if (proxy.status !== 'running') {
+                    showAlert('error', `Proxy Down: ${proxy.name}`, 
+                        `Proxy ${proxy.name} is not running`, alertKey + '_down');
+                } else {
+                    dismissAlert(alertKey + '_down');
+                }
+
+                // Alert: High failure rate
+                const total = (stats.total_connections || stats.total_requests || 1);
+                const failed = (stats.failed_connections || stats.failed_requests || 0);
+                const failureRate = failed / total;
+                
+                if (failed > 5 && failureRate > alertThresholds.failureRate) {
+                    showAlert('warning', `High Failure Rate: ${proxy.name}`, 
+                        `${(failureRate * 100).toFixed(1)}% of connections failing (${failed}/${total})`, 
+                        alertKey + '_failures');
+                } else {
+                    dismissAlert(alertKey + '_failures');
+                }
+
+                // Alert: High traffic (potential attack/issue)
+                const activity = (stats.requests || stats.total_connections || 0);
+                if (activity > alertThresholds.highTraffic) {
+                    showAlert('info', `High Traffic: ${proxy.name}`, 
+                        `${formatNumber(activity)} events detected`, alertKey + '_traffic');
+                } else {
+                    dismissAlert(alertKey + '_traffic');
+                }
+
+                // Alert: Pas de trafic depuis longtemps
+                const uptime = proxy.uptime || 0;
+                if (uptime > alertThresholds.noTraffic && activity === 0) {
+                    showAlert('warning', `No Traffic: ${proxy.name}`, 
+                        `No activity for ${Math.floor(uptime / 60)} minutes`, alertKey + '_notraffic');
+                } else {
+                    dismissAlert(alertKey + '_notraffic');
+                }
             });
+        }
+
+        function showAlert(type, title, message, id) {
+            if (alerts.has(id)) return; // Already shown
             
-            // Restaurer la sélection
-            selector.value = currentValue;
-            selectedProxy = currentValue;
+            const alertEl = document.createElement('div');
+            alertEl.className = `alert ${type}`;
+            alertEl.id = `alert-${id}`;
             
-            // Event listener
-            selector.onchange = (e) => {
-                selectedProxy = e.target.value;
-                document.getElementById('selectedProxyName').textContent = 
-                    selectedProxy === 'all' ? 'All Proxies' : selectedProxy;
-                updateMainChart(allProxies);
+            const icons = {
+                error: '🔴',
+                warning: '⚠️',
+                success: '✅',
+                info: 'ℹ️'
             };
+            
+            alertEl.innerHTML = `
+                <span class="alert-icon">${icons[type]}</span>
+                <div class="alert-content">
+                    <div class="alert-title">${title}</div>
+                    <div class="alert-message">${message}</div>
+                </div>
+                <button class="alert-close" onclick="dismissAlert('${id}')">×</button>
+            `;
+            
+            document.getElementById('alertsContainer').prepend(alertEl);
+            alerts.set(id, { type, title, message, time: Date.now() });
+            
+            // Auto-dismiss info/success après 10s
+            if (type === 'info' || type === 'success') {
+                setTimeout(() => dismissAlert(id), 10000);
+            }
+        }
+
+        function dismissAlert(id) {
+            const alertEl = document.getElementById(`alert-${id}`);
+            if (alertEl) {
+                alertEl.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => alertEl.remove(), 300);
+            }
+            alerts.delete(id);
+        }
+
+        // Proxy Control
+        async function controlProxy(proxyName, action) {
+            try {
+                const response = await fetch(`/api/proxy/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Basic ' + btoa('proxyox:changeme')
+                    },
+                    body: JSON.stringify({ proxy: proxyName })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('success', `Proxy ${action}`, 
+                        `${proxyName} ${action} successful`, `control_${proxyName}_${Date.now()}`);
+                } else {
+                    showAlert('error', `Proxy ${action} failed`, 
+                        result.error || 'Unknown error', `control_error_${Date.now()}`);
+                }
+            } catch (error) {
+                showAlert('error', `Proxy ${action} failed`, 
+                    error.message, `control_error_${Date.now()}`);
+            }
+        }
+
+        // Export Functions
+        async function exportStats(format) {
+            try {
+                const response = await fetch(`/api/export/${format}`, {
+                    headers: {
+                        'Authorization': 'Basic ' + btoa('proxyox:changeme')
+                    }
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `proxyox-stats-${Date.now()}.${format}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    showAlert('success', 'Export successful', 
+                        `Stats exported to ${format.toUpperCase()}`, `export_${Date.now()}`);
+                } else {
+                    showAlert('error', 'Export failed', 
+                        'Failed to export stats', `export_error_${Date.now()}`);
+                }
+            } catch (error) {
+                showAlert('error', 'Export failed', 
+                    error.message, `export_error_${Date.now()}`);
+            }
+        }
+
+        // Chart mode selector
+        document.addEventListener('DOMContentLoaded', () => {
+            const modeSelector = document.getElementById('chartMode');
+            modeSelector.onchange = (e) => {
+                chartMode = e.target.value;
+                if (chartMode === 'custom') {
+                    openProxyModal();
+                } else {
+                    updateMainChart(allProxies);
+                }
+            };
+            
+            const toggleBtn = document.getElementById('toggleRealtime');
+            toggleBtn.onclick = () => {
+                realtimePaused = !realtimePaused;
+                toggleBtn.textContent = realtimePaused ? '▶️ Resume' : '⏸️ Pause';
+                toggleBtn.classList.toggle('active');
+            };
+        });
+
+        function openProxyModal() {
+            const modal = document.getElementById('proxySelectModal');
+            const checkboxContainer = document.getElementById('proxyCheckboxes');
+            
+            checkboxContainer.innerHTML = allProxies.map(p => `
+                <label style="display: block; padding: 8px; cursor: pointer; color: var(--text-primary);">
+                    <input type="checkbox" value="${p.name}" ${selectedProxies.includes(p.name) ? 'checked' : ''} 
+                        style="margin-right: 8px;">
+                    ${p.name} (${p.protocol})
+                </label>
+            `).join('');
+            
+            modal.style.display = 'flex';
+        }
+
+        function closeProxyModal() {
+            document.getElementById('proxySelectModal').style.display = 'none';
+            document.getElementById('chartMode').value = selectedProxies.length > 0 ? 'custom' : 'top10';
+        }
+
+        function applyProxySelection() {
+            const checkboxes = document.querySelectorAll('#proxyCheckboxes input:checked');
+            selectedProxies = Array.from(checkboxes).map(cb => cb.value);
+            closeProxyModal();
+            updateMainChart(allProxies);
         }
 
         function updateStatsCards(proxies) {
@@ -833,7 +1148,7 @@
                 historicalData[proxy.name] = historicalData[proxy.name].filter(d => now - d.timestamp <= 10000);
             });
 
-            // Prepare datasets
+            // Couleurs pour les courbes
             const colors = [
                 '#5b8def', '#22d3ee', '#9d5cf6', '#fb923c', '#f87171',
                 '#10b981', '#ec4899', '#06b6d4', '#8b5cf6', '#14b8a6'
@@ -843,40 +1158,69 @@
             const labels = Array.from({ length: 10 }, (_, i) => (10 - i) + 's');
 
             let datasets = [];
+            let displayProxies = [];
             
-            if (selectedProxy === 'all') {
-                // Mode agrégé : une seule courbe pour la somme de tous les proxies
-                const aggregatedData = Array(10).fill(0);
-                
-                proxies.forEach(proxy => {
-                    const data = historicalData[proxy.name] || [];
-                    data.forEach(point => {
-                        const secondsAgo = Math.floor((now - point.timestamp) / 1000);
-                        if (secondsAgo < 10) {
-                            aggregatedData[9 - secondsAgo] += point.value;
-                        }
+            // Sélectionner les proxies à afficher selon le mode
+            switch(chartMode) {
+                case 'top10':
+                    // Top 10 par activité
+                    displayProxies = [...proxies]
+                        .sort((a, b) => {
+                            const aVal = (a.stats?.requests || 0) + (a.stats?.total_connections || 0);
+                            const bVal = (b.stats?.requests || 0) + (b.stats?.total_connections || 0);
+                            return bVal - aVal;
+                        })
+                        .slice(0, 10);
+                    document.getElementById('selectedProxyName').textContent = 'Top 10 Active';
+                    break;
+                    
+                case 'all-aggregate':
+                    // Agrégation de tous
+                    const aggregatedData = Array(10).fill(0);
+                    proxies.forEach(proxy => {
+                        const data = historicalData[proxy.name] || [];
+                        data.forEach(point => {
+                            const secondsAgo = Math.floor((now - point.timestamp) / 1000);
+                            if (secondsAgo < 10) {
+                                aggregatedData[9 - secondsAgo] += point.value;
+                            }
+                        });
                     });
-                });
-                
-                datasets = [{
-                    label: 'Total Traffic',
-                    data: aggregatedData,
-                    borderColor: '#5b8def',
-                    backgroundColor: '#5b8def10',
-                    borderWidth: 3,
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 0,
-                    pointHoverRadius: 6,
-                    pointHoverBorderWidth: 2,
-                    pointHoverBackgroundColor: '#5b8def',
-                    pointHoverBorderColor: '#0a0e1a'
-                }];
-            } else {
-                // Mode individuel : afficher uniquement le proxy sélectionné
-                const proxy = proxies.find(p => p.name === selectedProxy);
-                if (proxy) {
-                    const data = historicalData[selectedProxy] || [];
+                    
+                    datasets = [{
+                        label: 'All Proxies (Aggregated)',
+                        data: aggregatedData,
+                        borderColor: '#5b8def',
+                        backgroundColor: '#5b8def15',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 6
+                    }];
+                    document.getElementById('selectedProxyName').textContent = 'All Proxies (Aggregated)';
+                    break;
+                    
+                case 'http-only':
+                    displayProxies = proxies.filter(p => p.protocol === 'HTTP');
+                    document.getElementById('selectedProxyName').textContent = 'HTTP Proxies Only';
+                    break;
+                    
+                case 'tcp-only':
+                    displayProxies = proxies.filter(p => p.protocol === 'TCP');
+                    document.getElementById('selectedProxyName').textContent = 'TCP Proxies Only';
+                    break;
+                    
+                case 'custom':
+                    displayProxies = proxies.filter(p => selectedProxies.includes(p.name));
+                    document.getElementById('selectedProxyName').textContent = `${displayProxies.length} Selected`;
+                    break;
+            }
+            
+            // Créer les datasets pour les proxies sélectionnés (sauf mode agrégé)
+            if (chartMode !== 'all-aggregate') {
+                datasets = displayProxies.map((proxy, index) => {
+                    const data = historicalData[proxy.name] || [];
                     const values = Array(10).fill(null);
                     
                     data.forEach(point => {
@@ -886,22 +1230,22 @@
                         }
                     });
                     
-                    datasets = [{
-                        label: selectedProxy,
+                    return {
+                        label: proxy.name,
                         data: values,
-                        borderColor: '#5b8def',
-                        backgroundColor: '#5b8def10',
-                        borderWidth: 3,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length] + '15',
+                        borderWidth: 2.5,
                         tension: 0.4,
-                        fill: true,
-                        pointRadius: 2,
-                        pointHoverRadius: 6,
+                        fill: false,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
                         pointHoverBorderWidth: 2,
-                        pointHoverBackgroundColor: '#5b8def',
+                        pointHoverBackgroundColor: colors[index % colors.length],
                         pointHoverBorderColor: '#0a0e1a',
                         spanGaps: true
-                    }];
-                }
+                    };
+                });
             }
 
             if (mainChart) {
@@ -921,16 +1265,36 @@
                         },
                         plugins: {
                             legend: {
-                                display: false
+                                display: true,
+                                position: 'bottom',
+                                labels: {
+                                    color: '#8892a6',
+                                    usePointStyle: true,
+                                    padding: 12,
+                                    font: {
+                                        size: 11,
+                                        weight: '500'
+                                    },
+                                    boxWidth: 8,
+                                    boxHeight: 8
+                                },
+                                onClick: (e, legendItem, legend) => {
+                                    // Toggle visibility de la courbe
+                                    const index = legendItem.datasetIndex;
+                                    const chart = legend.chart;
+                                    const meta = chart.getDatasetMeta(index);
+                                    meta.hidden = !meta.hidden;
+                                    chart.update();
+                                }
                             },
                             tooltip: {
                                 enabled: true,
-                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                                titleColor: '#f1f5f9',
-                                bodyColor: '#cbd5e1',
-                                borderColor: '#475569',
+                                backgroundColor: 'rgba(10, 14, 26, 0.95)',
+                                titleColor: '#e2e8f0',
+                                bodyColor: '#8892a6',
+                                borderColor: '#1e2433',
                                 borderWidth: 1,
-                                padding: 12,
+                                padding: 14,
                                 displayColors: true,
                                 usePointStyle: true,
                                 titleFont: {
@@ -940,31 +1304,35 @@
                                 bodyFont: {
                                     size: 12
                                 },
+                                bodySpacing: 6,
                                 callbacks: {
                                     title: function(context) {
-                                        return context[0].label;
+                                        return '⏱️ ' + context[0].label;
                                     },
                                     label: function(context) {
                                         const value = context.parsed.y;
                                         if (value === null) return null;
                                         
-                                        if (selectedProxy === 'all') {
-                                            return 'Total: ' + formatNumber(value) + ' events';
-                                        } else {
-                                            const proxy = proxies.find(p => p.name === selectedProxy);
-                                            const isHTTP = proxy && proxy.protocol === 'HTTP';
-                                            const unit = isHTTP ? ' requests' : ' connections';
-                                            return selectedProxy + ': ' + formatNumber(value) + unit;
-                                        }
+                                        const proxy = proxies.find(p => p.name === context.dataset.label);
+                                        const isHTTP = proxy && proxy.protocol === 'HTTP';
+                                        const unit = isHTTP ? ' req' : ' conn';
+                                        
+                                        return context.dataset.label + ': ' + formatNumber(value) + unit;
                                     },
-                                    afterLabel: function(context) {
-                                        if (selectedProxy !== 'all') {
-                                            const proxy = proxies.find(p => p.name === selectedProxy);
-                                            if (proxy && proxy.stats) {
-                                                const stats = proxy.stats;
-                                                const bytesTotal = (stats.bytes_sent || 0) + (stats.bytes_received || 0);
-                                                return 'Data: ' + formatBytes(bytesTotal);
-                                            }
+                                    afterBody: function(context) {
+                                        // Statistiques additionnelles
+                                        const proxyNames = context.map(c => c.dataset.label);
+                                        const totalValue = context.reduce((sum, c) => sum + (c.parsed.y || 0), 0);
+                                        
+                                        if (context.length > 1) {
+                                            return '\nTotal: ' + formatNumber(totalValue) + ' events';
+                                        }
+                                        
+                                        // Info du proxy individuel
+                                        const proxy = proxies.find(p => p.name === proxyNames[0]);
+                                        if (proxy?.stats) {
+                                            const bytes = (proxy.stats.bytes_sent || 0) + (proxy.stats.bytes_received || 0);
+                                            return '\n📊 Data: ' + formatBytes(bytes);
                                         }
                                         return '';
                                     }
@@ -990,13 +1358,16 @@
                             y: {
                                 beginAtZero: true,
                                 grid: {
-                                    color: 'rgba(51, 65, 85, 0.3)',
+                                    color: 'rgba(30, 36, 51, 0.5)',
                                     lineWidth: 1
                                 },
                                 ticks: {
                                     color: '#64748b',
                                     font: {
                                         size: 11
+                                    },
+                                    callback: function(value) {
+                                        return formatNumber(value);
                                     }
                                 }
                             }
@@ -1052,7 +1423,18 @@
                 const requests = stats.requests || 0;
                 const connections = stats.total_connections || 0;
                 const activeConn = stats.active_connections || 0;
+                const activeReq = stats.active_requests || 0;
                 const bytesTotal = (stats.bytes_sent || 0) + (stats.bytes_received || 0);
+                const failed = (stats.failed_requests || stats.failed_connections || 0);
+                const total = (stats.total_requests || stats.total_connections || 1);
+                const errorRate = ((failed / total) * 100).toFixed(1);
+                
+                // Limites (si disponibles)
+                const maxConn = proxy.max_connections || 100;
+                const rateLimit = proxy.rate_limit || 1000;
+                const currentActive = activeReq || activeConn;
+                const usagePercent = ((currentActive / maxConn) * 100).toFixed(0);
+                const limitColor = usagePercent > 80 ? '#f87171' : usagePercent > 60 ? '#fb923c' : '#22c55e';
                 
                 return `
                     <tr>
@@ -1061,9 +1443,30 @@
                         <td><span class="metric">${proxy.listen}</span></td>
                         <td><span class="metric">${proxy.target}</span></td>
                         <td><span class="badge ${proxy.status}">${proxy.status}</span></td>
-                        <td><span class="metric"><strong>${requests > 0 ? formatNumber(requests) : `${activeConn}/${connections}`}</strong></span></td>
+                        <td>
+                            <span class="metric"><strong>${requests > 0 ? formatNumber(requests) : `${activeConn}/${connections}`}</strong></span>
+                            ${failed > 0 ? `<br><small style="color: #f87171;">${failed} failed (${errorRate}%)</small>` : ''}
+                        </td>
                         <td><span class="metric"><strong>${formatBytes(bytesTotal)}</strong></span></td>
+                        <td>
+                            <small style="color: ${limitColor};">
+                                <strong>${currentActive}/${maxConn}</strong> (${usagePercent}%)
+                                <br>Rate: ${rateLimit}/s
+                            </small>
+                        </td>
                         <td><span class="metric">${formatUptime(proxy.uptime)}</span></td>
+                        <td>
+                            <div style="display: flex; gap: 4px;">
+                                <button onclick="controlProxy('${proxy.name}', 'start')" 
+                                    ${proxy.status === 'running' ? 'disabled' : ''} 
+                                    class="control-btn" title="Start">▶️</button>
+                                <button onclick="controlProxy('${proxy.name}', 'stop')" 
+                                    ${proxy.status !== 'running' ? 'disabled' : ''} 
+                                    class="control-btn" title="Stop">⏹️</button>
+                                <button onclick="controlProxy('${proxy.name}', 'restart')" 
+                                    class="control-btn" title="Restart">🔄</button>
+                            </div>
+                        </td>
                         <td><canvas class="mini-chart" id="chart-${proxy.name}"></canvas></td>
                     </tr>
                 `;

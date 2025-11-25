@@ -53,6 +53,11 @@ class Dashboard:
         self.app.router.add_post("/api/proxy/{proxy_name}/stop", self.api_stop_proxy)
         self.app.router.add_post("/api/proxy/{proxy_name}/start", self.api_start_proxy)
         
+        # Simplified control endpoints (using JSON body)
+        self.app.router.add_post("/api/proxy/start", self.api_proxy_start_simple)
+        self.app.router.add_post("/api/proxy/stop", self.api_proxy_stop_simple)
+        self.app.router.add_post("/api/proxy/restart", self.api_proxy_restart_simple)
+        
         # Serve static files
         static_path = Path(__file__).parent / "static"
         if static_path.exists():
@@ -511,5 +516,143 @@ class Dashboard:
             return web.json_response({
                 "status": "error",
                 "message": str(e)
+            }, status=500)
+    
+    async def api_proxy_start_simple(self, request):
+        """Start a proxy using JSON body"""
+        try:
+            data = await request.json()
+            proxy_name = data.get('proxy')
+            
+            if not proxy_name:
+                return web.json_response({
+                    "status": "error",
+                    "message": "Missing 'proxy' parameter"
+                }, status=400)
+            
+            # Find and start the proxy
+            proxy = None
+            if proxy_name in self.proxy_manager.tcp_proxies:
+                proxy = self.proxy_manager.tcp_proxies[proxy_name]
+            elif proxy_name in self.proxy_manager.udp_proxies:
+                proxy = self.proxy_manager.udp_proxies[proxy_name]
+            elif proxy_name in self.proxy_manager.http_proxies:
+                proxy = self.proxy_manager.http_proxies[proxy_name]
+            
+            if not proxy:
+                return web.json_response({
+                    "status": "error",
+                    "message": f"Proxy '{proxy_name}' not found"
+                }, status=404)
+            
+            if proxy.status == 'running':
+                return web.json_response({
+                    "status": "success",
+                    "message": f"Proxy '{proxy_name}' is already running"
+                })
+            
+            await proxy.start()
+            logger.info(f"✅ Started proxy: {proxy_name}")
+            return web.json_response({
+                "status": "success",
+                "message": f"Proxy '{proxy_name}' started successfully"
+            })
+        except Exception as e:
+            logger.error(f"Start proxy failed: {e}")
+            return web.json_response({
+                "status": "error",
+                "error": str(e)
+            }, status=500)
+    
+    async def api_proxy_stop_simple(self, request):
+        """Stop a proxy using JSON body"""
+        try:
+            data = await request.json()
+            proxy_name = data.get('proxy')
+            
+            if not proxy_name:
+                return web.json_response({
+                    "status": "error",
+                    "message": "Missing 'proxy' parameter"
+                }, status=400)
+            
+            # Find and stop the proxy
+            proxy = None
+            if proxy_name in self.proxy_manager.tcp_proxies:
+                proxy = self.proxy_manager.tcp_proxies[proxy_name]
+            elif proxy_name in self.proxy_manager.udp_proxies:
+                proxy = self.proxy_manager.udp_proxies[proxy_name]
+            elif proxy_name in self.proxy_manager.http_proxies:
+                proxy = self.proxy_manager.http_proxies[proxy_name]
+            
+            if not proxy:
+                return web.json_response({
+                    "status": "error",
+                    "message": f"Proxy '{proxy_name}' not found"
+                }, status=404)
+            
+            if proxy.status == 'stopped':
+                return web.json_response({
+                    "status": "success",
+                    "message": f"Proxy '{proxy_name}' is already stopped"
+                })
+            
+            await proxy.stop()
+            logger.info(f"🛑 Stopped proxy: {proxy_name}")
+            return web.json_response({
+                "status": "success",
+                "message": f"Proxy '{proxy_name}' stopped successfully"
+            })
+        except Exception as e:
+            logger.error(f"Stop proxy failed: {e}")
+            return web.json_response({
+                "status": "error",
+                "error": str(e)
+            }, status=500)
+    
+    async def api_proxy_restart_simple(self, request):
+        """Restart a proxy using JSON body"""
+        try:
+            data = await request.json()
+            proxy_name = data.get('proxy')
+            
+            if not proxy_name:
+                return web.json_response({
+                    "status": "error",
+                    "message": "Missing 'proxy' parameter"
+                }, status=400)
+            
+            # Find proxy
+            proxy = None
+            if proxy_name in self.proxy_manager.tcp_proxies:
+                proxy = self.proxy_manager.tcp_proxies[proxy_name]
+            elif proxy_name in self.proxy_manager.udp_proxies:
+                proxy = self.proxy_manager.udp_proxies[proxy_name]
+            elif proxy_name in self.proxy_manager.http_proxies:
+                proxy = self.proxy_manager.http_proxies[proxy_name]
+            
+            if not proxy:
+                return web.json_response({
+                    "status": "error",
+                    "message": f"Proxy '{proxy_name}' not found"
+                }, status=404)
+            
+            # Stop then start
+            if proxy.status == 'running':
+                await proxy.stop()
+            
+            await asyncio.sleep(0.5)  # Petit délai pour libérer le port
+            await proxy.start()
+            
+            logger.info(f"🔄 Restarted proxy: {proxy_name}")
+            return web.json_response({
+                "status": "success",
+                "message": f"Proxy '{proxy_name}' restarted successfully"
+            })
+        except Exception as e:
+            logger.error(f"Restart proxy failed: {e}")
+            return web.json_response({
+                "status": "error",
+                "error": str(e)
             }, status=500)
 

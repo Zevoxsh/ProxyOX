@@ -8,13 +8,15 @@ from collections import deque
 logger = logging.getLogger("http_proxy")
 
 class HttpProxy:
-    def __init__(self, listen_host, listen_port, target_host=None, target_port=None, backend_https=False, domain_routes=None):
+    def __init__(self, listen_host, listen_port, target_host=None, target_port=None, backend_https=False, domain_routes=None, max_connections=100, rate_limit=1000):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
         self.target_port = target_port
         self.backend_https = backend_https  # Support HTTPS vers backend
         self.domain_routes = domain_routes or {}  # Routes basées sur les domaines
+        self.max_connections = max_connections
+        self.rate_limit = rate_limit  # Requêtes par seconde
         self.runner = None
         self.bytes_in = 0
         self.bytes_out = 0
@@ -32,8 +34,26 @@ class HttpProxy:
         self.avg_response_time = 0
         self.method_stats = {}
         self.domain_stats = {}  # Stats par domaine
+        self.rate_limiter = deque(maxlen=rate_limit)  # Timestamps des dernières requêtes
 
     async def handle_request(self, request):
+        # Rate limiting
+        now = time.time()
+        self.rate_limiter.append(now)
+        
+        # Compter les requêtes de la dernière seconde
+        recent_requests = [t for t in self.rate_limiter if now - t <= 1.0]
+        if len(recent_requests) > self.rate_limit:
+            self.failed_requests += 1
+            logger.warning(f"Rate limit exceeded: {len(recent_requests)}/{self.rate_limit}")
+            return web.Response(text="Rate limit exceeded", status=429)
+        
+        # Max connections check
+        if self.active_requests >= self.max_connections:
+            self.failed_requests += 1
+            logger.warning(f"Max connections reached: {self.active_requests}/{self.max_connections}")
+            return web.Response(text="Too many concurrent requests", status=503)
+        
         self.active_requests += 1
         self.total_requests += 1
         if self.active_requests > self.peak_requests:

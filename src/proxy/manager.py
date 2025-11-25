@@ -14,7 +14,7 @@ class ProxyManager:
 
     async def create_proxy(self, proto, listen_host, listen_port, target_host, target_port, 
                           use_tls=False, certfile=None, keyfile=None, backend_ssl=False, 
-                          backend_https=False, proxy_name=None, domain_routes=None):
+                          backend_https=False, proxy_name=None, domain_routes=None, max_connections=100, rate_limit=1000):
         """Create and register a proxy of the specified type"""
         proxy_id = proxy_name or f"{proto}_{listen_host}_{listen_port}"
         
@@ -23,21 +23,21 @@ class ProxyManager:
         
         if proto == "tcp":
             await self.register_tcp(proxy_id, listen_host, listen_port, target_host, target_port, 
-                                   use_tls, certfile, keyfile, backend_ssl)
+                                   use_tls, certfile, keyfile, backend_ssl, max_connections, rate_limit)
         elif proto == "udp":
             await self.register_udp(proxy_id, listen_host, listen_port, target_host, target_port)
         elif proto == "http":
-            await self.register_http(proxy_id, listen_host, listen_port, target_host, target_port, backend_https, domain_routes)
+            await self.register_http(proxy_id, listen_host, listen_port, target_host, target_port, backend_https, domain_routes, max_connections, rate_limit)
         else:
             logger.error("Unknown proxy type", proto=proto)
 
     async def register_tcp(self, proxy_id, listen_host, listen_port, target_host, target_port, 
-                          use_tls=False, certfile=None, keyfile=None, backend_ssl=False):
+                          use_tls=False, certfile=None, keyfile=None, backend_ssl=False, max_connections=100, rate_limit=1000):
         """Register a TCP proxy"""
         if proxy_id in self.tcp_proxies:
             return
         try:
-            proxy = TCPProxy(listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl)
+            proxy = TCPProxy(listen_host, listen_port, target_host, target_port, use_tls, certfile, keyfile, backend_ssl, max_connections, rate_limit)
             await proxy.start()
             self.tcp_proxies[proxy_id] = proxy
         except Exception as e:
@@ -52,14 +52,14 @@ class ProxyManager:
         await proxy.start()
         self.udp_proxies[proxy_id] = proxy
 
-    async def register_http(self, proxy_id, listen_host, listen_port, target_host, target_port, backend_https=False, domain_routes=None):
+    async def register_http(self, proxy_id, listen_host, listen_port, target_host, target_port, backend_https=False, domain_routes=None, max_connections=100, rate_limit=1000):
         """Register an HTTP proxy"""
         logger.info(f"🔥 REGISTER_HTTP CALLED: {proxy_id} on {listen_host}:{listen_port} -> {target_host}:{target_port}")
         logger.info(f"🔥 Domain routes: {domain_routes}")
         if proxy_id in self.http_proxies:
             logger.warning(f"HTTP proxy {proxy_id} already registered")
             return
-        proxy = HttpProxy(listen_host, listen_port, target_host, target_port, backend_https, domain_routes)
+        proxy = HttpProxy(listen_host, listen_port, target_host, target_port, backend_https, domain_routes, max_connections, rate_limit)
         await proxy.start()
         self.http_proxies[proxy_id] = proxy
         logger.info(f"✅ HTTP proxy {proxy_id} registered. Total HTTP proxies: {len(self.http_proxies)}")
@@ -82,11 +82,14 @@ class ProxyManager:
                 "backend_ssl": getattr(p, 'backend_ssl', False),
                 "status": p.status,
                 "uptime": self._get_uptime(p),
+                "max_connections": getattr(p, 'max_connections', 100),
+                "rate_limit": getattr(p, 'rate_limit', 1000),
                 "stats": {
                     "bytes_sent": p.bytes_out,
                     "bytes_received": p.bytes_in,
                     "active_connections": p.active_connections,
                     "total_connections": p.total_connections,
+                    "failed_connections": getattr(p, 'failed_connections', 0),
                 }
             })
         
@@ -118,6 +121,9 @@ class ProxyManager:
                 
             stats = {
                 "requests": p.total_requests,
+                "total_requests": p.total_requests,
+                "active_requests": p.active_requests,
+                "failed_requests": p.failed_requests,
                 "responses": p.total_requests - p.failed_requests,
                 "avg_response_time": p.avg_response_time,
                 "bytes_sent": p.bytes_out,
@@ -136,6 +142,8 @@ class ProxyManager:
                 "backend_ssl": getattr(p, 'backend_https', False),
                 "status": p.status,
                 "uptime": self._get_uptime(p),
+                "max_connections": getattr(p, 'max_connections', 100),
+                "rate_limit": getattr(p, 'rate_limit', 1000),
                 "stats": stats
             })
         

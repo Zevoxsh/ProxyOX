@@ -8,7 +8,7 @@ from pathlib import Path
 logger = logging.getLogger("tcp_proxy")
 
 class TCPProxy:
-    def __init__(self, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False):
+    def __init__(self, listen_host, listen_port, target_host, target_port, use_tls=False, certfile=None, keyfile=None, backend_ssl=False, max_connections=100, rate_limit=1000):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
@@ -17,6 +17,8 @@ class TCPProxy:
         self.backend_ssl = backend_ssl  # SSL pour se connecter au backend
         self.certfile = certfile
         self.keyfile = keyfile
+        self.max_connections = max_connections
+        self.rate_limit = rate_limit  # Connexions par seconde
         self.server = None
         self.bytes_in = 0
         self.bytes_out = 0
@@ -31,6 +33,7 @@ class TCPProxy:
         self.bytes_history = deque(maxlen=60)  # 60 secondes d'historique
         self.peak_connections = 0
         self.total_bytes_transferred = 0
+        self.rate_limiter = deque(maxlen=rate_limit)  # Timestamps des dernières connexions
 
     async def relay(self, reader, writer):
         try:
@@ -56,6 +59,27 @@ class TCPProxy:
                 pass
 
     async def handle_client(self, client_reader, client_writer):
+        # Rate limiting
+        now = time.time()
+        self.rate_limiter.append(now)
+        
+        # Compter les connexions de la dernière seconde
+        recent_conns = [t for t in self.rate_limiter if now - t <= 1.0]
+        if len(recent_conns) > self.rate_limit:
+            self.failed_connections += 1
+            logger.warning(f"Rate limit exceeded: {len(recent_conns)}/{self.rate_limit}")
+            client_writer.close()
+            await client_writer.wait_closed()
+            return
+        
+        # Max connections check
+        if self.active_connections >= self.max_connections:
+            self.failed_connections += 1
+            logger.warning(f"Max connections reached: {self.active_connections}/{self.max_connections}")
+            client_writer.close()
+            await client_writer.wait_closed()
+            return
+        
         self.active_connections += 1
         self.total_connections += 1
         if self.active_connections > self.peak_connections:

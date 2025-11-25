@@ -3,6 +3,7 @@ global:
   use-uvloop: false
   timeout: 300
   max-connections: 100
+  rate-limit: 1000  # Max requêtes/connexions par seconde par proxy
 
 frontends:
   # Port 80 - Reverse proxy HTTP avec routage par nom de domaine

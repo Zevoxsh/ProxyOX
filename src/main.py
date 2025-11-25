@@ -38,6 +38,11 @@ async def main():
         config = yaml.safe_load(f)
 
     manager = ProxyManager()
+    
+    # Get global settings
+    global_config = config.get("global", {})
+    max_connections = global_config.get("max-connections", 100)
+    rate_limit = global_config.get("rate-limit", 1000)
 
     # Start proxies from config
     for fe in config.get("frontends", []):
@@ -90,7 +95,7 @@ async def main():
 
         try:
             await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, 
-                                      use_tls, certfile, keyfile, backend_ssl, backend_https, proxy_name, domain_routes)
+                                      use_tls, certfile, keyfile, backend_ssl, backend_https, proxy_name, domain_routes, max_connections, rate_limit)
             backend_protocol = "HTTPS" if (backend_ssl or backend_https) else "HTTP"
             if domain_routes:
                 print(f"✅ {mode.upper()} reverse proxy: {listen_host}:{listen_port} with {len(domain_routes)} domain routes")
