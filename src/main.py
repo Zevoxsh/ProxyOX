@@ -41,7 +41,9 @@ async def main():
 
     # Start proxies from config
     for fe in config.get("frontends", []):
+        print(f"🔍 DEBUG: Frontend raw data: {fe}")
         mode = fe.get("mode", "tcp").lower()
+        print(f"🔍 DEBUG: Extracted mode='{mode}' from frontend '{fe.get('name')}'")
         listen_host, listen_port = fe["bind"].split(":")
         listen_port = int(listen_port)
 
