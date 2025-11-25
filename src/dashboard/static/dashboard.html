@@ -700,6 +700,8 @@
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
+                console.log('📊 Dashboard received data:', data);
+                console.log('Proxies count:', data.proxies?.length);
                 updateDashboard(data);
             };
 
@@ -794,25 +796,36 @@
                 '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#6366f1'
             ];
 
-            const datasets = proxies.map((proxy, index) => ({
-                label: proxy.name,
-                data: (historicalData[proxy.name] || []).map(d => d.value),
-                borderColor: colors[index % colors.length],
-                backgroundColor: colors[index % colors.length] + '20',
-                borderWidth: 2,
-                tension: 0.4,
-                fill: true,
-                pointRadius: 0,
-                pointHoverRadius: 4
-            }));
+            // Créer les labels (0 à 60)
+            const maxLength = Math.max(...Object.values(historicalData).map(h => h.length), 1);
+            const labels = Array.from({ length: maxLength }, (_, i) => i);
+
+            const datasets = proxies.map((proxy, index) => {
+                const data = historicalData[proxy.name] || [];
+                // Remplir avec des valeurs pour avoir la même longueur
+                const paddedData = [...Array(maxLength - data.length).fill(0), ...data.map(d => d.value)];
+                
+                return {
+                    label: proxy.name,
+                    data: paddedData,
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length] + '20',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 0,
+                    pointHoverRadius: 4
+                };
+            });
 
             if (mainChart) {
+                mainChart.data.labels = labels;
                 mainChart.data.datasets = datasets;
                 mainChart.update('none');
             } else {
                 mainChart = new Chart(ctx, {
                     type: 'line',
-                    data: { datasets },
+                    data: { labels, datasets },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
@@ -847,7 +860,6 @@
                         },
                         scales: {
                             x: {
-                                type: 'linear',
                                 display: false
                             },
                             y: {
