@@ -67,6 +67,7 @@ async def main():
         domain_routes = None
         if mode == "http" and "domain_routes" in fe:
             domain_routes = {}
+            print(f"🔍 DEBUG: Found domain_routes in config for {proxy_name}")
             for route in fe["domain_routes"]:
                 domain = route["domain"]
                 route_backend_name = route["backend"]
@@ -78,6 +79,12 @@ async def main():
                         "port": int(route_port),
                         "https": route_backend.get("https", False)
                     }
+                    print(f"  ✅ Route added: {domain} -> {route_host}:{route_port}")
+                else:
+                    print(f"  ❌ Backend not found: {route_backend_name}")
+            print(f"🔍 Total routes configured: {len(domain_routes)}")
+        else:
+            print(f"🔍 No domain_routes for {proxy_name} (mode={mode}, has_routes={'domain_routes' in fe})")
 
         try:
             await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, 
