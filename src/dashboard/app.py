@@ -40,7 +40,6 @@ class Dashboard:
         
         # Routes API
         self.app.router.add_get("/", self.handle_index)
-        self.app.router.add_get("/dashboard", self.handle_dashboard)
         self.app.router.add_get("/ws", self.websocket_handler)
         self.app.router.add_get("/api/stats", self.api_stats)
         self.app.router.add_post("/api/restart", self.api_restart)
@@ -97,13 +96,6 @@ class Dashboard:
     async def handle_index(self, request):
         """Serve the dashboard"""
         dashboard_path = Path(__file__).parent / "static" / "index.html"
-        with open(dashboard_path, "r", encoding="utf-8") as f:
-            html = f.read()
-        return web.Response(text=html, content_type="text/html")
-
-    async def handle_dashboard(self, request):
-        """Serve the simple dashboard"""
-        dashboard_path = Path(__file__).parent / "static" / "dashboard.html"
         with open(dashboard_path, "r", encoding="utf-8") as f:
             html = f.read()
         return web.Response(text=html, content_type="text/html")
