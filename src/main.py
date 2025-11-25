@@ -103,7 +103,7 @@ async def main():
 
     # Start dashboard
     dashboard_host = os.getenv("DASHBOARD_HOST", "0.0.0.0")
-    dashboard_port = int(os.getenv("DASHBOARD_PORT", "8080"))
+    dashboard_port = int(os.getenv("DASHBOARD_PORT", "8090"))
     
     dashboard = Dashboard(manager)
     app = dashboard.create_app()
@@ -124,9 +124,6 @@ async def main():
         await manager.stop_all()
         await runner.cleanup()
         print("✅ All stopped.")
-
-if __name__ == "__main__":
-    asyncio.run(main())
 
 if __name__ == "__main__":
     asyncio.run(main())
