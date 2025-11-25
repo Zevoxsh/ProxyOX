@@ -162,12 +162,13 @@ class HttpProxy:
         
         # Log des routes configurées
         if self.domain_routes:
-            logger.info(f"HTTP proxy started with {len(self.domain_routes)} domain routes:")
+            logger.info(f"✅ HTTP proxy STARTED with {len(self.domain_routes)} domain routes on {self.listen_host}:{self.listen_port}")
             for domain, config in self.domain_routes.items():
                 logger.info(f"  - {domain} -> {config['host']}:{config['port']} (HTTPS: {config.get('https', False)})")
         else:
-            logger.info(f"HTTP proxy started: {self.listen_host}:{self.listen_port} -> {self.target_host}:{self.target_port}")
-        asyncio.create_task(self._update_history())
+            logger.info(f"✅ HTTP proxy STARTED: {self.listen_host}:{self.listen_port} -> {self.target_host}:{self.target_port}")
+    
+    async def _update_history(self):
         """Met à jour l'historique toutes les secondes"""
         last_bytes_in = 0
         last_bytes_out = 0
