@@ -1,17 +1,567 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Proxy Dashboard React Vue Redesign</title>
-    <meta property="og:image" content="https://bolt.new/static/og_default.png">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:image" content="https://bolt.new/static/og_default.png">
-  <script type="module" crossorigin src="/assets/index-DEvh9YCs.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BZps3ftf.css">
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProxyOX Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: #f0f4f8;
+            border-radius: 25px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.disconnected {
+            background: #f56565;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card h3 {
+            color: #718096;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .stat-change {
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .stat-change.up {
+            color: #48bb78;
+        }
+
+        .stat-change.down {
+            color: #f56565;
+        }
+
+        .proxies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .proxy-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .proxy-card:hover {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transform: translateY(-3px);
+        }
+
+        .proxy-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f4f8;
+        }
+
+        .proxy-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .proxy-status {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .proxy-status.running {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .proxy-status.stopped {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .proxy-info {
+            margin-bottom: 15px;
+        }
+
+        .proxy-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+
+        .proxy-info-label {
+            color: #718096;
+            font-weight: 500;
+        }
+
+        .proxy-info-value {
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .proxy-chart {
+            height: 100px;
+            margin: 15px 0;
+            position: relative;
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .chart-bar {
+            flex: 1;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px 2px 0 0;
+            min-height: 2px;
+            transition: height 0.3s ease;
+        }
+
+        .proxy-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: white;
+            font-size: 20px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            background: white;
+            border-radius: 15px;
+            color: #718096;
+        }
+
+        .empty-state h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .proxies-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
 </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 ProxyOX Dashboard</h1>
+            <div class="status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connexion...</span>
+            </div>
+        </header>
+
+        <div id="app">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                Chargement des données...
+            </div>
+        </div>
+
+        <div class="footer">
+            ProxyOX v1.0 - Proxy Management System
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let reconnectTimeout = null;
+        let chartData = {};
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                console.log('WebSocket connecté');
+                updateStatus(true);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateDashboard(data);
+                } catch (error) {
+                    console.error('Erreur parsing données:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('Erreur WebSocket:', error);
+                updateStatus(false);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket déconnecté');
+                updateStatus(false);
+                
+                // Reconnexion automatique après 3 secondes
+                reconnectTimeout = setTimeout(() => {
+                    console.log('Tentative de reconnexion...');
+                    connectWebSocket();
+                }, 3000);
+            };
+        }
+
+        function updateStatus(connected) {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            if (connected) {
+                statusDot.classList.remove('disconnected');
+                statusText.textContent = 'Connecté';
+            } else {
+                statusDot.classList.add('disconnected');
+                statusText.textContent = 'Déconnecté';
+            }
+        }
+
+        function updateDashboard(data) {
+            const proxies = data.proxies || [];
+            
+            // Mettre à jour les statistiques globales
+            updateStats(data, proxies);
+            
+            // Mettre à jour les cartes de proxies
+            updateProxies(proxies);
+        }
+
+        function updateStats(data, proxies) {
+            const totalConnections = proxies.reduce((sum, p) => sum + (p.total_connections || 0), 0);
+            const activeConnections = proxies.reduce((sum, p) => sum + (p.active_connections || 0), 0);
+            const totalBytesIn = proxies.reduce((sum, p) => sum + (p.bytes_in || 0), 0);
+            const totalBytesOut = proxies.reduce((sum, p) => sum + (p.bytes_out || 0), 0);
+
+            const statsHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Proxies Actifs</h3>
+                        <div class="stat-value">${proxies.filter(p => p.status === 'running').length}</div>
+                        <div class="stat-change">sur ${proxies.length} total</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Connexions Actives</h3>
+                        <div class="stat-value">${activeConnections}</div>
+                        <div class="stat-change">${totalConnections} total</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Données Reçues</h3>
+                        <div class="stat-value">${formatBytes(totalBytesIn)}</div>
+                        <div class="stat-change up">↑ Entrant</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Données Envoyées</h3>
+                        <div class="stat-value">${formatBytes(totalBytesOut)}</div>
+                        <div class="stat-change down">↓ Sortant</div>
+                    </div>
+                </div>
+            `;
+
+            // Vérifier si les stats existent déjà
+            const existingStats = document.querySelector('.stats-grid');
+            if (existingStats) {
+                existingStats.outerHTML = statsHTML;
+            } else {
+                document.getElementById('app').innerHTML = statsHTML + document.getElementById('app').innerHTML;
+            }
+        }
+
+        function updateProxies(proxies) {
+            // Supprimer l'ancien contenu proxies
+            const existingProxies = document.querySelector('.proxies-grid');
+            const existingEmpty = document.querySelector('.empty-state');
+            if (existingProxies) existingProxies.remove();
+            if (existingEmpty) existingEmpty.remove();
+
+            if (proxies.length === 0) {
+                document.getElementById('app').innerHTML += `
+                    <div class="empty-state">
+                        <h2>Aucun proxy configuré</h2>
+                        <p>Configurez vos proxies dans le fichier config.yaml</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const proxiesHTML = proxies.map(proxy => {
+                // Mettre à jour l'historique du graphique
+                if (!chartData[proxy.name]) {
+                    chartData[proxy.name] = [];
+                }
+                chartData[proxy.name].push(proxy.connections_per_second || proxy.active_connections || 0);
+                if (chartData[proxy.name].length > 50) {
+                    chartData[proxy.name].shift();
+                }
+
+                const chartBars = chartData[proxy.name].map(value => {
+                    const maxValue = Math.max(...chartData[proxy.name], 1);
+                    const height = (value / maxValue) * 100;
+                    return `<div class="chart-bar" style="height: ${height}%"></div>`;
+                }).join('');
+
+                return `
+                    <div class="proxy-card">
+                        <div class="proxy-header">
+                            <div class="proxy-name">${proxy.name}</div>
+                            <div class="proxy-status ${proxy.status}">${proxy.status === 'running' ? 'Actif' : 'Arrêté'}</div>
+                        </div>
+                        <div class="proxy-info">
+                            <div class="proxy-info-item">
+                                <span class="proxy-info-label">Mode</span>
+                                <span class="proxy-info-value">${proxy.mode.toUpperCase()}</span>
+                            </div>
+                            <div class="proxy-info-item">
+                                <span class="proxy-info-label">Adresse</span>
+                                <span class="proxy-info-value">${proxy.bind}</span>
+                            </div>
+                            <div class="proxy-info-item">
+                                <span class="proxy-info-label">Connexions</span>
+                                <span class="proxy-info-value">${proxy.active_connections} / ${proxy.total_connections}</span>
+                            </div>
+                            <div class="proxy-info-item">
+                                <span class="proxy-info-label">Données</span>
+                                <span class="proxy-info-value">${formatBytes((proxy.bytes_in || 0) + (proxy.bytes_out || 0))}</span>
+                            </div>
+                        </div>
+                        <div class="proxy-chart">
+                            ${chartBars}
+                        </div>
+                        <div class="proxy-actions">
+                            ${proxy.status === 'running' 
+                                ? `<button class="btn btn-danger" onclick="stopProxy('${proxy.name}')">Arrêter</button>`
+                                : `<button class="btn btn-success" onclick="startProxy('${proxy.name}')">Démarrer</button>`
+                            }
+                            <button class="btn btn-primary" onclick="viewDetails('${proxy.name}')">Détails</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const proxiesContainer = document.createElement('div');
+            proxiesContainer.className = 'proxies-grid';
+            proxiesContainer.innerHTML = proxiesHTML;
+            document.getElementById('app').appendChild(proxiesContainer);
+        }
+
+        async function stopProxy(name) {
+            try {
+                const response = await fetch(`/api/proxy/${name}/stop`, { method: 'POST' });
+                const result = await response.json();
+                console.log('Proxy arrêté:', result);
+            } catch (error) {
+                console.error('Erreur arrêt proxy:', error);
+                alert('Erreur lors de l\'arrêt du proxy');
+            }
+        }
+
+        async function startProxy(name) {
+            try {
+                const response = await fetch(`/api/proxy/${name}/start`, { method: 'POST' });
+                const result = await response.json();
+                console.log('Proxy démarré:', result);
+            } catch (error) {
+                console.error('Erreur démarrage proxy:', error);
+                alert('Erreur lors du démarrage du proxy');
+            }
+        }
+
+        function viewDetails(name) {
+            const proxy = chartData[name];
+            alert(`Détails du proxy: ${name}\n\nHistorique: ${proxy ? proxy.length + ' points de données' : 'Aucune donnée'}`);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Initialisation
+        connectWebSocket();
+
+        // Nettoyage à la fermeture de la page
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+            }
+        });
+    </script>
+</body>
 </html>
