@@ -1,258 +1,470 @@
-# ProxyOX
+# ProxyOX 🚀
 
-A high-performance asynchronous proxy server with built-in monitoring dashboard.
+**ProxyOX** est un serveur proxy asynchrone haute performance avec support du **reverse proxy** basé sur les noms de domaine, monitoring en temps réel et dashboard web intégré.
 
-## Features
+## ✨ Fonctionnalités
 
-- **Multi-Protocol Support**: TCP, UDP, and HTTP proxying
-- **Asynchronous I/O**: Built with Python asyncio for high performance
-- **Real-time Dashboard**: Web-based monitoring interface with live graphs
-- **Authentication**: Secure dashboard access with HTTP Basic Auth
-- **Flexible Configuration**: YAML-based configuration with frontend/backend separation
-- **Statistics**: Track connections, requests, bytes transferred, packets, and more
-- **Protocol Intelligence**: Special handling for HTTP/HTTPS with detailed metrics
-- **Custom Naming**: Named proxies for easy identification in the dashboard
-- **SSL/TLS Support**: Backend SSL encryption for TCP proxies
-- **Global Statistics**: Aggregate metrics across all proxies
+- **🔄 Reverse Proxy Intelligent** : Routage HTTP/HTTPS par nom de domaine (SNI)
+- **🌐 Multi-Protocole** : TCP, UDP, et HTTP/HTTPS
+- **⚡ Haute Performance** : Architecture asynchrone avec Python asyncio
+- **📊 Dashboard Web** : Interface de monitoring temps réel avec graphiques
+- **🔒 Sécurisé** : Authentification HTTP Basic Auth pour le dashboard
+- **⚙️ Configuration Flexible** : Format YAML simple avec séparation frontend/backend
+- **📈 Statistiques Détaillées** : Connexions, requêtes, bande passante, latence
+- **🔐 Support SSL/TLS** : Chiffrement backend pour proxies TCP
+- **📝 Logs Détaillés** : Suivi complet des requêtes et des routes
 
-## Quick Start
+---
 
-### Manual Installation
+## 🚀 Installation Rapide
 
-1. Clone the repository:
+### Installation en Une Commande
+
 ```bash
-git clone https://github.com/yourusername/proxyox.git
-cd proxyox
+wget -qO- https://raw.githubusercontent.com/Zevoxsh/ProxyOX/main/install.sh | sudo bash
 ```
 
-2. Install dependencies:
+**Ou avec curl :**
+
 ```bash
-pip install -r requirements.txt
+curl -fsSL https://raw.githubusercontent.com/Zevoxsh/ProxyOX/main/install.sh | sudo bash
 ```
 
-3. Create dashboard credentials file (`.env` in project root):
-```env
-DASHBOARD_USER=proxyox
-DASHBOARD_PASS=changeme
-```
+Cette commande va :
+- ✅ Cloner le repository
+- ✅ Installer les dépendances Python
+- ✅ Configurer le service systemd
+- ✅ Créer les fichiers de configuration
+- ✅ Démarrer ProxyOX automatiquement
 
-4. Configure your proxies in `config.yaml` (see Configuration section below)
+### Installation Manuelle
 
-5. Run the proxy:
 ```bash
-python src/main.py
+# 1. Cloner le repository
+git clone https://github.com/Zevoxsh/ProxyOX.git /opt/proxyox
+cd /opt/proxyox
+
+# 2. Lancer le script d'installation
+sudo bash install.sh
 ```
 
-6. Access the dashboard at `http://localhost:8080`
+---
 
-## Configuration
+## ⚙️ Configuration
 
-### Configuration Structure
+### 📁 Structure de Configuration
 
-ProxyOX uses a **frontend/backend** configuration model. Frontends define listening interfaces, while backends define target servers.
+ProxyOX utilise un modèle **frontend/backend** :
+- **Frontends** : Définissent les interfaces d'écoute (ports, protocoles)
+- **Backends** : Définissent les serveurs cibles
 
-The `config.yaml` file structure:
+Fichier de configuration : `/etc/proxyox/config.yaml`
+
+### 🌐 Reverse Proxy par Nom de Domaine
+
+Configuration d'un reverse proxy HTTP avec routage intelligent :
 
 ```yaml
 global:
-  log-level: info          # Logging level (debug, info, warning, error)
-  use-uvloop: false        # Use uvloop for better performance (Linux only)
-  timeout: 300             # Connection timeout in seconds
-  max-connections: 100     # Maximum concurrent connections per proxy
+  log-level: info
+  use-uvloop: false
+  timeout: 300
+  max-connections: 100
 
 frontends:
-  - name: http-redirect            # Friendly name for dashboard
-    bind: 0.0.0.0:80              # Listen address:port
-    mode: tcp                      # Protocol: tcp, udp, or http
-    default_backend: tcp-https-server   # Backend name to forward to
-    backend_ssl: true              # Enable SSL encryption to backend
-
-  - name: tcp-fe
-    bind: 0.0.0.0:443
-    mode: tcp
-    default_backend: tcp-https-server
-    backend_ssl: false             # Passthrough mode (no SSL wrapping)
-
-  - name: udp-fe
-    bind: 127.0.0.1:9001
-    mode: udp
-    default_backend: udp-server
-
-  - name: http-fe
-    bind: 127.0.0.1:8081
+  # Port 80 - Reverse proxy HTTP
+  - name: http-reverse-proxy
+    bind: 0.0.0.0:80
     mode: http
-    default_backend: http-server
+    domain_routes:
+      - domain: app.example.com
+        backend: app-server
+      - domain: api.example.com
+        backend: api-server
+      - domain: blog.example.com
+        backend: blog-server
+    # Backend par défaut si domaine non trouvé
+    default_backend: default-web
+
+  # Port 443 - Reverse proxy HTTPS
+  - name: https-reverse-proxy
+    bind: 0.0.0.0:443
+    mode: http
+    domain_routes:
+      - domain: app.example.com
+        backend: app-server-https
+      - domain: api.example.com
+        backend: api-server-https
+    default_backend: default-web-https
 
 backends:
-  - name: tcp-https-server         # Backend name (referenced by frontends)
-    server: 10.10.0.201:443        # Target server address:port
+  - name: app-server
+    server: 192.168.1.10:80
+    https: false
 
-  - name: udp-server
-    server: 10.10.0.201:9443
+  - name: api-server
+    server: 192.168.1.20:8080
+    https: false
 
-  - name: http-server
-    server: 10.10.0.200:8006
+  - name: blog-server
+    server: 192.168.1.30:3000
+    https: false
+
+  - name: app-server-https
+    server: 192.168.1.10:443
+    https: true
+
+  - name: api-server-https
+    server: 192.168.1.20:8443
+    https: true
+
+  - name: default-web
+    server: 192.168.1.100:80
+    https: false
+
+  - name: default-web-https
+    server: 192.168.1.100:443
+    https: true
 ```
 
-### Protocol Modes
+### 🔧 Configuration DNS
 
-#### TCP Mode
-- General-purpose TCP relay
-- Supports backend SSL encryption (`backend_ssl: true`)
-- Use cases: HTTPS forwarding, database proxying, custom protocols
-- Metrics: Active connections, bytes sent/received
+Pour utiliser le reverse proxy, configurez vos enregistrements DNS :
 
-#### UDP Mode
-- Stateless UDP relay
-- Ideal for DNS, QUIC, gaming protocols
-- Metrics: Packets sent/received, bytes sent/received
+```dns
+# Zone DNS : example.com
+app.example.com     A    IP_DU_PROXY
+api.example.com     A    IP_DU_PROXY
+blog.example.com    A    IP_DU_PROXY
+```
 
-#### HTTP Mode
-- HTTP/1.1 aware proxy
-- Additional metrics: Request count, response times, HTTP methods
-- Use cases: REST APIs, web services
+**Exemple avec DNS local** (`/etc/hosts` ou équivalent) :
 
-### Frontend Options
+```
+192.168.1.5    app.example.com
+192.168.1.5    api.example.com
+192.168.1.5    blog.example.com
+```
 
-| Option | Required | Description |
-|--------|----------|-------------|
-| `name` | Yes | Friendly name displayed in dashboard |
-| `bind` | Yes | Listen address and port (e.g., `0.0.0.0:80`) |
-| `mode` | Yes | Protocol type: `tcp`, `udp`, or `http` |
-| `default_backend` | Yes | Backend name to forward traffic to |
-| `backend_ssl` | No | (TCP only) Wrap backend connection in SSL/TLS |
+### 🔌 Modes de Protocole
 
-### Backend Options
+#### 🌐 Mode HTTP (Reverse Proxy)
 
-| Option | Required | Description |
-|--------|----------|-------------|
-| `name` | Yes | Unique backend identifier |
-| `server` | Yes | Target server address and port |
+Idéal pour router le trafic HTTP/HTTPS par nom de domaine :
 
-### Example Configurations
-
-#### HTTP to HTTPS Conversion
 ```yaml
 frontends:
-  - name: http-to-https
+  - name: web-proxy
     bind: 0.0.0.0:80
+    mode: http
+    domain_routes:
+      - domain: site1.local
+        backend: server1
+      - domain: site2.local
+        backend: server2
+    default_backend: default-server
+```
+
+**Fonctionnalités** :
+- ✅ Routage par header `Host`
+- ✅ Support des domaines et sous-domaines
+- ✅ Gestion automatique des headers HTTP
+- ✅ Statistiques par requête (latence, méthodes HTTP)
+
+#### 🔌 Mode TCP
+
+Proxy TCP générique pour tout type de trafic :
+
+```yaml
+frontends:
+  - name: tcp-proxy
+    bind: 0.0.0.0:443
     mode: tcp
     default_backend: https-server
-    backend_ssl: true    # Converts plain HTTP to HTTPS
-
-backends:
-  - name: https-server
-    server: 192.168.1.100:443
+    backend_ssl: false  # Passthrough simple
 ```
 
-#### HTTPS Passthrough
+**Options** :
+- `backend_ssl: true` : Chiffre la connexion vers le backend
+- `backend_ssl: false` : Mode passthrough (pas de modification)
+
+#### 📡 Mode UDP
+
+Proxy UDP pour DNS, gaming, VoIP, etc. :
+
 ```yaml
 frontends:
-  - name: https-passthrough
-    bind: 0.0.0.0:443
-    mode: tcp
-    default_backend: web-server
-    backend_ssl: false   # No SSL wrapping, passes encrypted traffic as-is
-
-backends:
-  - name: web-server
-    server: 192.168.1.100:443
-```
-
-#### DNS Proxy
-```yaml
-frontends:
-  - name: dns-proxy
+  - name: udp-proxy
     bind: 0.0.0.0:53
     mode: udp
-    default_backend: cloudflare-dns
+    default_backend: dns-server
 
 backends:
-  - name: cloudflare-dns
-    server: 1.1.1.1:53
+  - name: dns-server
+    server: 8.8.8.8:53
 ```
 
-## Dashboard
+---
 
-The dashboard runs on port **8080** by default and provides real-time monitoring.
+## 🎯 Exemples de Configuration
 
-### Authentication
+### Exemple 1 : Hébergement Multi-Sites
 
-Default credentials (change in `.env` file):
-- Username: `proxyox`
-- Password: `changeme`
+```yaml
+frontends:
+  - name: multi-site-http
+    bind: 0.0.0.0:80
+    mode: http
+    domain_routes:
+      - domain: wordpress.local
+        backend: wordpress
+      - domain: nextcloud.local
+        backend: nextcloud
+      - domain: grafana.local
+        backend: grafana
+    default_backend: wordpress
 
-⚠️ **Security Warning**: Change these credentials in the `.env` file after installation!
-
-### Dashboard Features
-
-Access the dashboard at `http://your-server:8080`
-
-**Overview:**
-- **Global Statistics**: Total connections, total requests, bytes sent/received across all proxies
-- **Real-time Graphs**: Live charts with 1-second updates showing traffic patterns
-- **Individual Proxy Cards**: Each proxy displays its custom name and protocol-specific metrics
-
-**Per-Proxy Metrics:**
-- **TCP Proxies**: Active connections, bytes sent/received, uptime
-- **UDP Proxies**: Packets sent/received, bytes sent/received, uptime
-- **HTTP Proxies**: Total requests, avg response time, bytes sent/received, uptime
-
-**Interactive Features:**
-- Search and filter proxies by name or protocol
-- Click proxy cards for detailed modal view with configuration and activity graph
-- Export data to CSV
-- Adjustable refresh interval and chart history
-- Toast notifications for connection status
-
-**White Theme:** Clean, professional interface optimized for monitoring
-
-## Requirements
-
-- Python 3.11+
-- aiohttp
-- pyyaml
-- structlog
-
-## Project Structure
-
-```
-proxyox/
-├── config.yaml           # Configuration file
-├── .env                  # Dashboard credentials
-├── requirements.txt      # Python dependencies
-├── README.md            # This file
-└── src/
-    ├── main.py          # Entry point
-    ├── config.py        # Configuration loader
-    ├── dashboard/       # Web dashboard
-    │   ├── __init__.py
-    │   ├── app.py       # Web server & WebSocket
-    │   └── static/
-    │       └── index.html   # Dashboard UI
-    └── proxy/           # Proxy implementations
-        ├── __init__.py
-        ├── manager.py   # Proxy manager
-        ├── tcp.py       # TCP proxy
-        ├── udp.py       # UDP proxy
-        ├── http.py      # HTTP proxy
-        ├── tls.py       # TLS utilities
-        └── metrics.py   # Metrics tracking
+backends:
+  - name: wordpress
+    server: 192.168.1.10:80
+    https: false
+  
+  - name: nextcloud
+    server: 192.168.1.20:80
+    https: false
+  
+  - name: grafana
+    server: 192.168.1.30:3000
+    https: false
 ```
 
-## Uninstallation
+### Exemple 2 : Proxy avec Accès Direct
 
-If you used the `install.sh` script (Linux only):
+```yaml
+frontends:
+  # Reverse proxy sur port 80
+  - name: http-reverse
+    bind: 0.0.0.0:80
+    mode: http
+    domain_routes:
+      - domain: app.local
+        backend: app-server
+    default_backend: app-server
+
+  # Accès direct TCP sur port alternatif
+  - name: direct-access
+    bind: 0.0.0.0:8080
+    mode: tcp
+    default_backend: app-server
+
+backends:
+  - name: app-server
+    server: 192.168.1.50:80
+```
+
+### Exemple 3 : Load Balancing Simple
+
+Créez plusieurs frontends pointant vers différents backends :
+
+```yaml
+frontends:
+  - name: lb-web1
+    bind: 0.0.0.0:8081
+    mode: http
+    default_backend: web-server-1
+
+  - name: lb-web2
+    bind: 0.0.0.0:8082
+    mode: http
+    default_backend: web-server-2
+
+backends:
+  - name: web-server-1
+    server: 192.168.1.10:80
+  
+  - name: web-server-2
+    server: 192.168.1.11:80
+```
+
+---
+
+## 📊 Dashboard et Monitoring
+
+### Accès au Dashboard
+
+Par défaut : `http://IP_SERVEUR:8090`
+
+**Identifiants** (définis dans `.env`) :
+```env
+DASHBOARD_USER=admin
+DASHBOARD_PASS=votre_mot_de_passe
+```
+
+### Changer le Port du Dashboard
+
 ```bash
+# Éditer le fichier .env
+nano /opt/proxyox/.env
+
+# Modifier
+DASHBOARD_PORT=8090  # Changez ce port
+```
+
+### Statistiques Disponibles
+
+- **Proxies actifs** : Liste de tous les proxies en cours
+- **Connexions** : Totales, actives, pic
+- **Bande passante** : Entrée/Sortie en temps réel
+- **Latence** : Temps de réponse moyen (mode HTTP)
+- **Requêtes** : Total, succès, erreurs
+- **Graphiques temps réel** : Trafic, connexions, requêtes
+
+---
+
+## 🛠️ Gestion du Service
+
+### Commandes Systemd
+
+```bash
+# Démarrer ProxyOX
+sudo systemctl start proxyox
+
+# Arrêter ProxyOX
+sudo systemctl stop proxyox
+
+# Redémarrer ProxyOX
+sudo systemctl restart proxyox
+
+# Voir le statut
+sudo systemctl status proxyox
+
+# Activer au démarrage
+sudo systemctl enable proxyox
+
+# Désactiver au démarrage
+sudo systemctl disable proxyox
+```
+
+### Logs et Débogage
+
+```bash
+# Voir les logs en temps réel
+sudo journalctl -u proxyox -f
+
+# Voir les 100 dernières lignes
+sudo journalctl -u proxyox -n 100
+
+# Logs depuis aujourd'hui
+sudo journalctl -u proxyox --since today
+```
+
+### Recharger la Configuration
+
+```bash
+# Éditer la config
+sudo nano /etc/proxyox/config.yaml
+
+# Redémarrer pour appliquer
+sudo systemctl restart proxyox
+```
+
+---
+
+## 🔧 Dépannage
+
+### Le reverse proxy ne route pas correctement
+
+**Vérifiez les logs** :
+```bash
+journalctl -u proxyox -f
+```
+
+Vous devriez voir :
+```
+INFO:http_proxy:[HTTP] Request from example.com - Available routes: ['app.example.com', 'api.example.com']
+INFO:http_proxy:Routing example.com to 192.168.1.10:80 (HTTPS: False)
+```
+
+**Problème de domaine** : Si vous voyez `Available routes: None`, vérifiez que `domain_routes` est bien configuré dans `config.yaml`.
+
+### Erreur "Domaine non approuvé" (NextCloud, etc.)
+
+Certaines applications vérifient le header `Host`. Ajoutez le domaine dans leur configuration :
+
+**NextCloud** :
+```bash
+nano /var/www/nextcloud/config/config.php
+```
+
+```php
+'trusted_domains' => array (
+  0 => 'localhost',
+  1 => 'nextcloud.example.com',  // Ajoutez ici
+),
+```
+
+### Erreur de décodage (ERR_CONTENT_DECODING_FAILED)
+
+ProxyOX désactive automatiquement la compression. Si l'erreur persiste, vérifiez que vous utilisez la dernière version :
+
+```bash
+cd /opt/proxyox
+git pull origin main
+sudo systemctl restart proxyox
+```
+
+---
+
+## 🔄 Mise à Jour
+
+```bash
+# Aller dans le répertoire
+cd /opt/proxyox
+
+# Sauvegarder la config actuelle
+sudo cp /etc/proxyox/config.yaml /etc/proxyox/config.yaml.backup
+
+# Mettre à jour depuis GitHub
+sudo git pull origin main
+
+# Redémarrer le service
+sudo systemctl restart proxyox
+```
+
+---
+
+## 🗑️ Désinstallation
+
+```bash
+cd /opt/proxyox
 sudo bash uninstall.sh
 ```
 
-For manual installations, simply delete the project directory and `.env` file.
+---
 
-## License
+## 📚 Documentation Technique
 
-MIT License - See LICENSE file for details
+### Architecture
 
-## Support
+```
+Client → Frontend (Port d'écoute) → Reverse Proxy → Backend (Serveur cible)
+```
 
-For issues and questions, please open an issue on the project repository.
+### Flux de Requête HTTP
+
+1. Client fait une requête vers `app.example.com`
+2. ProxyOX reçoit la requête sur le port 80
+3. Extraction du header `Host: app.example.com`
+4. Recherche dans `domain_routes`
+5. Route trouvée → Redirige vers le backend configuré
+6. Réponse renvoyée au client
+
+### Gestion des Headers
+
+ProxyOX filtre automatiquement les headers problématiques :
+- ✅ `Transfer-Encoding` : Géré automatiquement
+- ✅ `Content-Length` : Recalculé automatiquement
+- ✅ `Connection` : Forcé à `close`
+- ✅ `Accept-Encoding` : Forcé à `identity` (désactive compression)
+
+---
