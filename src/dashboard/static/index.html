@@ -550,15 +550,13 @@
                 <a href="#" class="nav-item" data-view="backends">Backends</a>
                 <a href="#" class="nav-item" data-view="domains">Domain Routes</a>
            
-                <a href="#" class="nav-item locked">IP Management</a>
-                <a href="#" class="nav-item locked">Audit Logs</a>
+
             </nav>
             <div class="user-menu">
                 <div class="live-indicator">
                     <div class="live-dot"></div>
                     <span>LIVE</span>
                 </div>
-                <span class="user-badge" id="currentUser">admin</span>
                 <button class="btn-logout" id="logout">Logout</button>
             </div>
         </header>
@@ -946,7 +944,7 @@
             </form>
         </div>
     </div>
-                    <button type="submit" class="btn btn-primary">Create</button>
+                    
                 </div>
             </form>
         </div>
@@ -1380,6 +1378,7 @@
                     <td>${st}</td>
                     <td>${(p.total_requests || 0).toLocaleString()}</td>
                     <td><div class="actions">
+                        <button class="btn-icon primary" onclick="editProxy(${p.id})" title="Config">⚙️</button>
                         <button class="btn-icon danger" onclick="delProxy(${p.id})">🗑️</button>
                     </div></td>
                 </tr>`;
@@ -1544,6 +1543,8 @@
             const id = e.target.querySelector('input[name="id"]').value;
             const isEdit = id !== '';
             
+            let maxCon = parseInt(e.target.max_connections.value);
+            if (!maxCon || maxCon <= 0) maxCon = 1000;
             const data = {
                 name: e.target.name.value,
                 mode: e.target.mode.value,
@@ -1554,7 +1555,7 @@
                 ip_whitelist: e.target.ip_whitelist.value.trim(),
                 ip_blacklist: e.target.ip_blacklist.value.trim(),
                 rate_limit: parseInt(e.target.rate_limit.value) || 0,
-                max_connections: parseInt(e.target.max_connections.value) || 0,
+                max_connections: maxCon,
                 timeout: parseInt(e.target.timeout.value) || 30,
                 keepalive_timeout: parseInt(e.target.keepalive_timeout.value) || 60,
                 enable_logging: e.target.enable_logging.checked,

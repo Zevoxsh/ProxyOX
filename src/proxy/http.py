@@ -12,7 +12,7 @@ from pathlib import Path
 logger = logging.getLogger("http_proxy")
 
 class HttpProxy:
-    def __init__(self, listen_host, listen_port, target_host=None, target_port=None, backend_https=False, domain_routes=None, max_connections=100, rate_limit=1000, ip_filter=None, use_https=False, cert_manager=None):
+    def __init__(self, listen_host, listen_port, target_host=None, target_port=None, backend_https=False, domain_routes=None, max_connections=10000, rate_limit=1000, ip_filter=None, use_https=False, cert_manager=None):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
@@ -21,7 +21,7 @@ class HttpProxy:
         self.use_https = use_https  # Support HTTPS côté client (navigateur -> proxy)
         self.cert_manager = cert_manager or CertificateManager()  # Gestionnaire de certificats
         self.domain_routes = domain_routes or {}  # Routes basées sur les domaines
-        self.max_connections = max_connections
+        self.max_connections = max_connections if max_connections and max_connections > 0 else float('inf')
         self.rate_limit = rate_limit  # Requêtes par seconde
         self.ip_filter = ip_filter  # Filtre IP
         self.runner = None
@@ -65,7 +65,7 @@ class HttpProxy:
             return web.Response(text="Rate limit exceeded", status=429)
         
         # Max connections check
-        if self.active_requests >= self.max_connections:
+        if self.max_connections != float('inf') and self.active_requests >= self.max_connections:
             self.failed_requests += 1
             logger.warning(f"Max connections reached: {self.active_requests}/{self.max_connections}")
             return web.Response(text="Too many concurrent requests", status=503)
