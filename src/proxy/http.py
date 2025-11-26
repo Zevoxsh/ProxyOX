@@ -3,19 +3,23 @@ import asyncio
 import logging
 import time
 import ssl
+import re
 from collections import deque
 from .ip_filter import IPFilter
+from .cert_manager import CertificateManager
 from pathlib import Path
 
 logger = logging.getLogger("http_proxy")
 
 class HttpProxy:
-    def __init__(self, listen_host, listen_port, target_host=None, target_port=None, backend_https=False, domain_routes=None, max_connections=100, rate_limit=1000, ip_filter=None):
+    def __init__(self, listen_host, listen_port, target_host=None, target_port=None, backend_https=False, domain_routes=None, max_connections=100, rate_limit=1000, ip_filter=None, use_https=False, cert_manager=None):
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.target_host = target_host
         self.target_port = target_port
         self.backend_https = backend_https  # Support HTTPS vers backend
+        self.use_https = use_https  # Support HTTPS côté client (navigateur -> proxy)
+        self.cert_manager = cert_manager or CertificateManager()  # Gestionnaire de certificats
         self.domain_routes = domain_routes or {}  # Routes basées sur les domaines
         self.max_connections = max_connections
         self.rate_limit = rate_limit  # Requêtes par seconde
@@ -143,17 +147,86 @@ class HttpProxy:
                 if key.lower() not in skip_headers:
                     headers[key] = value
             
-            # Définir le Host pour le backend
-            headers['Host'] = target_host
+            # Définir le Host pour le backend (avec port si non-standard)
+            if (backend_https and target_port != 443) or (not backend_https and target_port != 80):
+                headers['Host'] = f"{target_host}:{target_port}"
+            else:
+                headers['Host'] = target_host
+            
+            # NE PAS réécrire Referer/Origin - laisser pointer vers le proxy
+            # Cela permet au backend de voir l'URL réelle du client
+            # Si besoin de réécriture, décommenter ci-dessous
+            # if 'Referer' in headers:
+            #     # Réécriture désactivée pour compatibilité CORS
+            #     pass
+            
             # Forcer HTTP/1.1 et connection close pour éviter les problèmes
             headers['Connection'] = 'close'
             # Désactiver la compression
             headers['Accept-Encoding'] = 'identity'
             
+            # CRITICAL: Forward cookies to backend
+            # aiohttp doesn't automatically include Cookie header from request.cookies
+            if request.cookies:
+                cookie_header = '; '.join([f"{name}={value}" for name, value in request.cookies.items()])
+                headers['Cookie'] = cookie_header
+            
+            # Debug: logger les headers envoyés pour GraphQL
+            if '/graphql' in request.path:
+                logger.info(f"[GraphQL DEBUG] Sending headers to backend: {dict(headers)}")
+                logger.info(f"[GraphQL DEBUG] Request cookies: {request.cookies}")
+                logger.info(f"[GraphQL DEBUG] Cookie header: {headers.get('Cookie', 'NO COOKIE HEADER')}")
+            
             async with ClientSession(connector=connector) as session:
                 async with session.request(request.method, backend_url, data=data, headers=headers, allow_redirects=False) as resp:
                     resp_data = await resp.read()
                     self.bytes_out += len(resp_data)
+                    
+                    # Logger les erreurs pour debug
+                    if resp.status >= 400:
+                        logger.warning(f"Backend error: {resp.status} for {request.method} {backend_url}")
+                        logger.warning(f"Response headers: {dict(resp.headers)}")
+                        logger.warning(f"Response body length: {len(resp_data)} bytes")
+                        if len(resp_data) > 0:
+                            try:
+                                error_text = resp_data.decode('utf-8', errors='ignore')
+                                logger.warning(f"Error response body: {error_text}")
+                            except Exception as e:
+                                logger.warning(f"Could not decode error response: {e}")
+                        else:
+                            logger.warning("Error response body is empty")
+                    
+                    # Réécriture minimale : uniquement les URLs pour éviter les redirections
+                    content_type = resp.headers.get('Content-Type', '').lower()
+                    if 'text/html' in content_type or 'application/javascript' in content_type or 'text/javascript' in content_type:
+                        try:
+                            # Décoder
+                            text_content = resp_data.decode('utf-8', errors='ignore')
+                            
+                            # Construire les patterns de remplacement
+                            proxy_scheme = 'https' if self.use_https else 'http'
+                            proxy_host = request.host
+                            
+                            # Remplacer UNIQUEMENT les URLs absolues du backend
+                            # Cas 1: https://10.10.0.204:8443
+                            text_content = text_content.replace(
+                                f'https://{target_host}:{target_port}',
+                                f'{proxy_scheme}://{proxy_host}'
+                            )
+                            # Cas 2: http://10.10.0.204:8443
+                            text_content = text_content.replace(
+                                f'http://{target_host}:{target_port}',
+                                f'{proxy_scheme}://{proxy_host}'
+                            )
+                            # Cas 3: //10.10.0.204:8443 (protocol-relative)
+                            text_content = text_content.replace(
+                                f'//{target_host}:{target_port}',
+                                f'//{proxy_host}'
+                            )
+                            
+                            resp_data = text_content.encode('utf-8')
+                        except Exception as e:
+                            logger.warning(f"Failed to rewrite URLs: {e}")
                     
                     duration = time.time() - req_start
                     
@@ -182,9 +255,54 @@ class HttpProxy:
                         'connection', 'keep-alive', 'transfer-encoding',
                         'content-encoding', 'content-length'
                     }
+                    
+                    # Logger les Set-Cookie headers pour debug
+                    set_cookies = resp.headers.getall('Set-Cookie', [])
+                    if set_cookies:
+                        logger.info(f"[COOKIE DEBUG] Backend sent {len(set_cookies)} Set-Cookie headers")
+                    
                     for key, value in resp.headers.items():
                         if key.lower() not in skip_response_headers:
-                            response_headers[key] = value
+                            # Réécrire Location pour les redirections
+                            if key.lower() == 'location':
+                                # Convertir l'URL du backend en URL du proxy
+                                backend_scheme = 'https' if backend_https else 'http'
+                                proxy_scheme = 'https' if self.use_https else 'http'
+                                proxy_host = request.host
+                                
+                                location_value = value
+                                # Si c'est une URL relative, pas de changement
+                                if not location_value.startswith('http'):
+                                    response_headers[key] = location_value
+                                # Si c'est une URL absolue du backend, réécrire vers le proxy
+                                elif location_value.startswith(f'{backend_scheme}://{target_host}'):
+                                    location_value = location_value.replace(
+                                        f'{backend_scheme}://{target_host}:{target_port}',
+                                        f'{proxy_scheme}://{proxy_host}'
+                                    ).replace(
+                                        f'{backend_scheme}://{target_host}',
+                                        f'{proxy_scheme}://{proxy_host}'
+                                    )
+                                    response_headers[key] = location_value
+                                    logger.info(f"[REDIRECT] Rewrote Location: {value} -> {location_value}")
+                                else:
+                                    response_headers[key] = location_value
+                            # Réécrire les cookies Set-Cookie pour qu'ils fonctionnent avec le proxy
+                            elif key.lower() == 'set-cookie':
+                                # Retirer le domain du cookie pour qu'il s'applique au proxy
+                                # et modifier Secure/SameSite si nécessaire
+                                cookie_value = value
+                                # Supprimer Domain= pour que le cookie s'applique au domaine actuel
+                                import re
+                                cookie_value = re.sub(r';\s*Domain=[^;]+', '', cookie_value, flags=re.IGNORECASE)
+                                # Si le proxy est en HTTPS mais pas le backend, ajouter Secure
+                                # Si le backend est en HTTPS mais pas le proxy, retirer Secure
+                                if self.use_https and 'Secure' not in cookie_value:
+                                    cookie_value += '; Secure'
+                                response_headers[key] = cookie_value
+                                logger.info(f"[COOKIE DEBUG] Rewrote Set-Cookie: {value[:100]} -> {cookie_value[:100]}")
+                            else:
+                                response_headers[key] = value
                     
                     return web.Response(body=resp_data, status=resp.status, headers=response_headers)
         except Exception as e:
@@ -201,7 +319,22 @@ class HttpProxy:
         app.router.add_route('*', '/{tail:.*}', self.handle_request)
         self.runner = web.AppRunner(app)
         await self.runner.setup()
-        site = web.TCPSite(self.runner, self.listen_host, self.listen_port)
+        
+        # Créer le site avec ou sans SSL
+        if self.use_https:
+            # Générer le certificat SSL
+            hostname = self.listen_host if self.listen_host not in ['0.0.0.0', '::'] else 'localhost'
+            ip_addresses = ['127.0.0.1', '::1']
+            if self.listen_host not in ['0.0.0.0', '::']:
+                ip_addresses.append(self.listen_host)
+            
+            ssl_context = self.cert_manager.get_ssl_context(hostname, ip_addresses)
+            site = web.TCPSite(self.runner, self.listen_host, self.listen_port, ssl_context=ssl_context)
+            protocol = "HTTPS"
+        else:
+            site = web.TCPSite(self.runner, self.listen_host, self.listen_port)
+            protocol = "HTTP"
+        
         await site.start()
         self.start_time = time.time()
         self.status = "running"
@@ -209,11 +342,12 @@ class HttpProxy:
         
         # Log des routes configurées
         if self.domain_routes:
-            logger.info(f"✅ HTTP proxy STARTED with {len(self.domain_routes)} domain routes on {self.listen_host}:{self.listen_port}")
+            logger.info(f"✅ {protocol} proxy STARTED with {len(self.domain_routes)} domain routes on {self.listen_host}:{self.listen_port}")
             for domain, config in self.domain_routes.items():
-                logger.info(f"  - {domain} -> {config['host']}:{config['port']} (HTTPS: {config.get('https', False)})")
+                logger.info(f"  - {domain} -> {config['host']}:{config['port']} (Backend HTTPS: {config.get('https', False)})")
         else:
-            logger.info(f"✅ HTTP proxy STARTED: {self.listen_host}:{self.listen_port} -> {self.target_host}:{self.target_port}")
+            backend_proto = "HTTPS" if self.backend_https else "HTTP"
+            logger.info(f"✅ {protocol} proxy STARTED: {self.listen_host}:{self.listen_port} -> {backend_proto}://{self.target_host}:{self.target_port}")
     
     async def _update_history(self):
         """Met à jour l'historique toutes les secondes"""

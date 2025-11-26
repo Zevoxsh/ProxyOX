@@ -1,136 +1,204 @@
+"""
+ProxyOX - Professional Proxy Server with Database Backend
+"""
 import asyncio
-import yaml
 import structlog
 import logging
 import sys
-import os
 from pathlib import Path
 from aiohttp import web
-from dotenv import load_dotenv
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Load environment variables
-load_dotenv(project_root / ".env")
+from src.proxy.manager import ProxyManager
+from src.dashboard.app import Dashboard
+from src.database.mysql_manager import MySQLDatabaseManager
+import os
+from dotenv import load_dotenv
 
-# Handle imports whether running from project root or src directory
-try:
-    from src.proxy.manager import ProxyManager
-    from src.dashboard.app import Dashboard
-except ModuleNotFoundError:
-    from proxy.manager import ProxyManager
-    from dashboard.app import Dashboard
+# Load environment variables
+load_dotenv()
 
 # Logging setup
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
 structlog.configure(
     wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
-    processors=[structlog.processors.KeyValueRenderer()]
+    processors=[
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.KeyValueRenderer(key_order=['timestamp', 'level', 'event'])
+    ]
 )
+
+logger = structlog.get_logger()
+
+async def load_config_from_db(manager: ProxyManager, db: MySQLDatabaseManager):
+    """Load proxy configuration from database"""
+    logger.info("Loading configuration from database")
+    
+    # Get global settings
+    settings = await db.list_settings(include_secrets=False)
+    
+    # Get all proxies
+    proxies = await db.list_proxies(enabled_only=True)
+    backends_list = await db.list_backends(enabled_only=True)
+    
+    # Create backend map
+    backend_map = {b['id']: b for b in backends_list}
+    
+    logger.info("Configuration loaded", 
+               proxies_count=len(proxies),
+               backends_count=len(backends_list))
+    
+    # Start each proxy
+    for proxy in proxies:
+        try:
+            mode = proxy['mode'].lower()
+            bind_address = proxy['bind_address']
+            bind_port = proxy['bind_port']
+            
+            # Get default backend if configured
+            default_backend = None
+            if proxy.get('default_backend_id'):
+                backend = backend_map.get(proxy['default_backend_id'])
+                if backend:
+                    default_backend = f"{backend['server_address']}:{backend['server_port']}"
+            
+            # Get domain routes for this proxy
+            domain_routes = await db.list_domain_routes(proxy['id'])
+            
+            # Build domain_routes dict for HTTP mode
+            routes_dict = {}
+            if mode == 'http' and domain_routes:
+                for route in domain_routes:
+                    backend = backend_map.get(route['backend_id'])
+                    if backend:
+                        routes_dict[route['domain']] = {
+                            'host': backend['server_address'],
+                            'port': backend['server_port'],
+                            'https': backend.get('use_https', False)
+                        }
+            
+            # Get IP filters for this proxy
+            blacklist_filters = await db.list_ip_filters('blacklist', proxy['id'])
+            whitelist_filters = await db.list_ip_filters('whitelist', proxy['id'])
+            
+            blacklist_ips = [f['ip_address'] for f in blacklist_filters]
+            whitelist_ips = [f['ip_address'] for f in whitelist_filters]
+            
+            # Start the proxy
+            logger.info("Starting proxy",
+                       name=proxy['name'],
+                       mode=mode,
+                       bind=f"{bind_address}:{bind_port}",
+                       default_backend=default_backend,
+                       domain_routes_count=len(routes_dict),
+                       blacklist_count=len(blacklist_ips),
+                       whitelist_count=len(whitelist_ips))
+            
+            await manager.start_proxy(
+                name=proxy['name'],
+                mode=mode,
+                bind_address=bind_address,
+                bind_port=bind_port,
+                backend_address=default_backend,
+                domain_routes=routes_dict if routes_dict else None,
+                max_connections=proxy.get('max_connections', 100),
+                rate_limit=proxy.get('rate_limit', 1000),
+                timeout=proxy.get('timeout', 300),
+                backend_ssl=proxy.get('use_ssl', False),
+                use_https=proxy.get('use_ssl', False),  # SSL côté client
+                blacklist=blacklist_ips if blacklist_ips else None,
+                whitelist=whitelist_ips if whitelist_ips else None
+            )
+            
+        except Exception as e:
+            logger.error("Failed to start proxy",
+                        proxy=proxy['name'],
+                        error=str(e))
 
 async def main():
     """Main entrypoint for ProxyOX"""
-    # Load config
-    config_path = project_root / "config.yaml"
-    with open(config_path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-
+    logger.info("="*60)
+    logger.info("Starting ProxyOX - Professional Proxy Server")
+    logger.info("="*60)
+    
+    # Get MySQL connection parameters from environment
+    mysql_host = os.getenv("MYSQL_HOST", "localhost")
+    mysql_port = int(os.getenv("MYSQL_PORT", "3306"))
+    mysql_user = os.getenv("MYSQL_USER", "proxyox")
+    mysql_password = os.getenv("MYSQL_PASSWORD", "proxyox")
+    mysql_database = os.getenv("MYSQL_DATABASE", "proxyox")
+    
+    # Initialize MySQL database
+    db = MySQLDatabaseManager(
+        host=mysql_host,
+        port=mysql_port,
+        user=mysql_user,
+        password=mysql_password,
+        database=mysql_database
+    )
+    await db.initialize()
+    
+    # Initialize proxy manager
     manager = ProxyManager()
+    manager.db = db  # Attach database to manager for runtime operations
     
-    # Get global settings
-    global_config = config.get("global", {})
-    max_connections = global_config.get("max-connections", 100)
-    rate_limit = global_config.get("rate-limit", 1000)
-
-    # Start proxies from config
-    for fe in config.get("frontends", []):
-        print(f"🔍 DEBUG: Frontend raw data: {fe}")
-        mode = fe.get("mode", "tcp").lower()
-        print(f"🔍 DEBUG: Extracted mode='{mode}' from frontend '{fe.get('name')}'")
-        listen_host, listen_port = fe["bind"].split(":")
-        listen_port = int(listen_port)
-
-        backend_name = fe.get("default_backend")
-        backend = next((s for s in config.get("backends", []) if s["name"] == backend_name), None)
-        
-        target_host = None
-        target_port = None
-        backend_https = False
-        
-        if backend:
-            target_host, target_port = backend["server"].split(":")
-            target_port = int(target_port)
-            backend_https = backend.get("https", False)
-        
-        use_tls = fe.get("tls", False)
-        certfile = fe.get("certfile")
-        keyfile = fe.get("keyfile")
-        backend_ssl = fe.get("backend_ssl", False) or backend_https
-        proxy_name = fe.get("name", f"{mode}_{listen_host}_{listen_port}")
-        
-        # Support pour les routes de domaines (reverse proxy)
-        domain_routes = None
-        if mode == "http" and "domain_routes" in fe:
-            domain_routes = {}
-            print(f"🔍 DEBUG: Found domain_routes in config for {proxy_name}")
-            for route in fe["domain_routes"]:
-                domain = route["domain"]
-                route_backend_name = route["backend"]
-                route_backend = next((s for s in config.get("backends", []) if s["name"] == route_backend_name), None)
-                if route_backend:
-                    route_host, route_port = route_backend["server"].split(":")
-                    domain_routes[domain] = {
-                        "host": route_host,
-                        "port": int(route_port),
-                        "https": route_backend.get("https", False)
-                    }
-                    print(f"  ✅ Route added: {domain} -> {route_host}:{route_port}")
-                else:
-                    print(f"  ❌ Backend not found: {route_backend_name}")
-            print(f"🔍 Total routes configured: {len(domain_routes)}")
-        else:
-            print(f"🔍 No domain_routes for {proxy_name} (mode={mode}, has_routes={'domain_routes' in fe})")
-
-        try:
-            await manager.create_proxy(mode, listen_host, listen_port, target_host, target_port, 
-                                      use_tls, certfile, keyfile, backend_ssl, backend_https, proxy_name, domain_routes, max_connections, rate_limit)
-            backend_protocol = "HTTPS" if (backend_ssl or backend_https) else "HTTP"
-            if domain_routes:
-                print(f"✅ {mode.upper()} reverse proxy: {listen_host}:{listen_port} with {len(domain_routes)} domain routes")
-            elif target_host:
-                print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} -> {target_host}:{target_port} ({backend_protocol})")
-            else:
-                print(f"✅ {mode.upper()} proxy: {listen_host}:{listen_port} (routing only)")
-        except Exception as e:
-            print(f"❌ FAILED to start {mode.upper()} proxy on {listen_host}:{listen_port}: {e}")
-
-    print("✅ All proxies running. Starting dashboard...")
-
-    # Start dashboard
-    dashboard_host = os.getenv("DASHBOARD_HOST", "0.0.0.0")
-    dashboard_port = int(os.getenv("DASHBOARD_PORT", "8090"))
+    # Load and start proxies from database
+    await load_config_from_db(manager, db)
     
-    dashboard = Dashboard(manager)
-    app = dashboard.create_app()
-
-    runner = web.AppRunner(app)
+    # Initialize dashboard
+    dashboard = Dashboard(manager, mysql_host, mysql_port, mysql_user, mysql_password, mysql_database)
+    await dashboard.initialize()
+    
+    # Get dashboard settings
+    dashboard_host = await db.get_setting('DASHBOARD_HOST') or '0.0.0.0'
+    dashboard_port = await db.get_setting('DASHBOARD_PORT') or 9090
+    
+    logger.info("Starting dashboard",
+               host=dashboard_host,
+               port=dashboard_port)
+    
+    # Start dashboard server
+    runner = web.AppRunner(dashboard.app)
     await runner.setup()
     site = web.TCPSite(runner, dashboard_host, dashboard_port)
-    await site.start()
-
-    print(f"🌐 Dashboard running on http://{dashboard_host}:{dashboard_port}")
-    print(f"🔐 Login required - check .env for credentials")
-
+    
     try:
-        while True:
-            await asyncio.sleep(1)
+        await site.start()
+        
+        logger.info("="*60)
+        logger.info("ProxyOX is running!")
+        logger.info(f"Dashboard: http://{dashboard_host}:{dashboard_port}")
+        logger.info("Login credentials:")
+        logger.info("  Username: admin")
+        logger.info("  Password: changeme")
+        logger.info("="*60)
+        logger.info("Press Ctrl+C to stop")
+        logger.info("="*60)
+        
+        # Keep running
+        await asyncio.Event().wait()
+        
     except KeyboardInterrupt:
-        print("\n🛑 Stopping all proxies and dashboard...")
+        logger.info("Shutting down ProxyOX...")
+    finally:
+        # Stop all proxies
         await manager.stop_all()
+        
+        # Cleanup
         await runner.cleanup()
-        print("✅ All stopped.")
+        await db.disconnect()
+        
+        logger.info("ProxyOX stopped")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

@@ -1,641 +1,1718 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProxyOX Dashboard</title>
+    <title>ProxyOX - Professional Proxy Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0a0d11;
+            --bg-card: #13171f;
+            --bg-hover: #1a1f2e;
+            --text: #e4e7eb;
+            --text-dim: #6b7280;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --border: rgba(255,255,255,0.06);
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
         }
 
-        .container {
-            max-width: 1400px;
+        /* Header */
+        .header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            height: 64px;
+            display: flex;
+            align-items: center;
+            padding: 0 32px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent), #6366f1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .nav {
+            display: flex;
+            gap: 4px;
+            margin-left: 48px;
+        }
+
+        .nav-item {
+            padding: 8px 16px;
+            color: var(--text-dim);
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover { background: var(--bg-hover); color: var(--text); }
+        .nav-item.active { background: rgba(59, 130, 246, 0.1); color: var(--accent); }
+        .nav-item.locked { opacity: 0.4; cursor: not-allowed; }
+        .nav-item.locked::after { content: " 🔒"; font-size: 11px; }
+
+        .user-menu {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-badge {
+            padding: 6px 12px;
+            background: var(--bg-hover);
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .btn-logout {
+            padding: 6px 12px;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover { background: var(--danger); color: white; }
+
+        /* Main */
+        .main {
+            padding: 32px;
+            max-width: 1600px;
             margin: 0 auto;
         }
 
-        header {
-            background: white;
-            padding: 20px 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            margin-bottom: 30px;
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            color: var(--text-dim);
+            margin-bottom: 32px;
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+
+        .stat-card:hover { border-color: rgba(255,255,255,0.12); transform: translateY(-2px); }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .stat-label {
+            color: var(--text-dim);
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .stat-icon.blue { background: rgba(59, 130, 246, 0.1); }
+        .stat-icon.green { background: rgba(16, 185, 129, 0.1); }
+        .stat-icon.red { background: rgba(239, 68, 68, 0.1); }
+        .stat-icon.yellow { background: rgba(245, 158, 11, 0.1); }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        /* Card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        h1 {
-            color: #667eea;
-            font-size: 28px;
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+
+        .btn-secondary {
+            background: var(--bg-hover);
+            color: var(--text);
+        }
+
+        .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 14px 24px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover { background: var(--bg-hover); }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .badge.success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .badge.danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .badge.info { background: rgba(59, 130, 246, 0.1); color: var(--accent); }
+        .badge.warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover { background: rgba(59, 130, 246, 0.1); color: var(--accent); }
+        .btn-icon.primary { color: var(--accent); }
+        .btn-icon.primary:hover { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
+        .btn-icon.danger:hover { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show { display: flex; }
+
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .btn-close {
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .btn-close:hover { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+        .modal-body { padding: 24px; }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 6px;
+            margin: 12px 0;
+        }
+
+        .checkbox-group input { width: auto; }
+
+        .modal-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-dim);
+        }
+
+        .empty-icon {
+            font-size: 36px;
+            opacity: 0.3;
+            margin-bottom: 12px;
+        }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .login-page {
+            display: flex;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a0d11 0%, #13171f 100%);
+        }
+
+        .login-box {
+            margin: auto;
+            width: 400px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-logo {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 16px;
+            background: linear-gradient(135deg, var(--accent), #6366f1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
             font-weight: 700;
         }
 
-        .status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 20px;
-            background: #f0f4f8;
-            border-radius: 25px;
+        .login-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
         }
 
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #48bb78;
-            animation: pulse 2s infinite;
+        .login-subtitle {
+            color: var(--text-dim);
+            font-size: 13px;
         }
 
-        .status-dot.disconnected {
-            background: #f56565;
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .error.show { display: block; }
+
+        @media (max-width: 768px) {
+            .stats { grid-template-columns: 1fr; }
+            .form-row { grid-template-columns: 1fr; }
+            .nav { display: none; }
+        }
+
+        .hidden { display: none !important; }
+
+        .updating {
+            animation: pulse 2s ease-in-out infinite;
         }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.7; }
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
-
-        .stat-card h3 {
-            color: #718096;
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-
-        .stat-value {
-            font-size: 36px;
-            font-weight: 700;
-            color: #2d3748;
-        }
-
-        .stat-change {
-            font-size: 14px;
-            margin-top: 8px;
-        }
-
-        .stat-change.up {
-            color: #48bb78;
-        }
-
-        .stat-change.down {
-            color: #f56565;
-        }
-
-        .proxies-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-
-        .proxy-card {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-        }
-
-        .proxy-card:hover {
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-            transform: translateY(-3px);
-        }
-
-        .proxy-header {
-            display: flex;
-            justify-content: space-between;
+        .live-indicator {
+            display: inline-flex;
             align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f0f4f8;
-        }
-
-        .proxy-name {
-            font-size: 18px;
-            font-weight: 700;
-            color: #2d3748;
-        }
-
-        .proxy-status {
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 12px;
+            gap: 6px;
+            padding: 4px 10px;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 5px;
+            font-size: 11px;
             font-weight: 600;
-            text-transform: uppercase;
+            color: var(--success);
         }
 
-        .proxy-status.running {
-            background: #c6f6d5;
-            color: #22543d;
-        }
-
-        .proxy-status.stopped {
-            background: #fed7d7;
-            color: #742a2a;
-        }
-
-        .proxy-info {
-            margin-bottom: 15px;
-        }
-
-        .proxy-info-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            font-size: 14px;
-        }
-
-        .proxy-info-label {
-            color: #718096;
-            font-weight: 500;
-        }
-
-        .proxy-info-value {
-            color: #2d3748;
-            font-weight: 600;
-        }
-
-        .proxy-chart {
-            height: 100px;
-            margin: 15px 0;
-            position: relative;
-            background: #f7fafc;
-            border-radius: 8px;
-            padding: 10px;
-            display: flex;
-            align-items: flex-end;
-            gap: 2px;
-        }
-
-        .chart-bar {
-            flex: 1;
-            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-            border-radius: 2px 2px 0 0;
-            min-height: 2px;
-            transition: height 0.3s ease;
-        }
-
-        .proxy-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5a67d8;
-        }
-
-        .btn-danger {
-            background: #f56565;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #e53e3e;
-        }
-
-        .btn-success {
-            background: #48bb78;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #38a169;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 60px;
-            color: white;
-            font-size: 20px;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255,255,255,0.3);
-            border-top-color: white;
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            animation: blink 2s ease-in-out infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px;
-            background: white;
-            border-radius: 15px;
-            color: #718096;
-        }
-
-        .empty-state h2 {
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #2d3748;
-        }
-
-        .footer {
-            text-align: center;
-            color: white;
-            margin-top: 40px;
-            font-size: 14px;
-            opacity: 0.8;
-        }
-
-        @media (max-width: 768px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .proxies-grid {
-                grid-template-columns: 1fr;
-            }
-
-            header {
-                flex-direction: column;
-                gap: 15px;
-            }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🚀 ProxyOX Dashboard</h1>
-            <div class="status">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">Connexion...</span>
+    <!-- Login -->
+    <div id="login" class="login-page">
+        <div class="login-box">
+            <div class="login-header">
+                <div class="login-logo">P</div>
+                <h1 class="login-title">ProxyOX</h1>
+                <p class="login-subtitle">Professional Proxy Management</p>
+            </div>
+            <div id="error" class="error"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="user" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="pass" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;margin-top:16px;">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="hidden">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">P</div>
+                <span>ProxyOX</span>
+            </div>
+            <nav class="nav">
+                <a href="#" class="nav-item active" data-view="home">Dashboard</a>
+                <a href="#" class="nav-item" data-view="proxies">Proxies</a>
+                <a href="#" class="nav-item" data-view="backends">Backends</a>
+                <a href="#" class="nav-item" data-view="domains">Domain Routes</a>
+           
+                <a href="#" class="nav-item locked">IP Management</a>
+                <a href="#" class="nav-item locked">Audit Logs</a>
+            </nav>
+            <div class="user-menu">
+                <div class="live-indicator">
+                    <div class="live-dot"></div>
+                    <span>LIVE</span>
+                </div>
+                <span class="user-badge" id="currentUser">admin</span>
+                <button class="btn-logout" id="logout">Logout</button>
             </div>
         </header>
 
-        <div id="app">
-            <div class="loading">
-                <div class="loading-spinner"></div>
-                Chargement des données...
-            </div>
-        </div>
+        <main class="main">
+            <!-- Home View -->
+            <div id="viewHome" class="view active">
+                <h1 class="page-title">Dashboard</h1>
+                <p class="page-subtitle">Real-time proxy monitoring and analytics</p>
 
-        <div class="footer">
-            ProxyOX v1.0 - Proxy Management System
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-label">Total Requests</div>
+                            <div class="stat-icon blue">📊</div>
+                        </div>
+                        <div class="stat-value" id="statRequests">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-label">Active Proxies</div>
+                            <div class="stat-icon green">✓</div>
+                        </div>
+                        <div class="stat-value" id="statProxies">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-label">Blocked</div>
+                            <div class="stat-icon red">🛡️</div>
+                        </div>
+                        <div class="stat-value">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-label">Req/Sec</div>
+                            <div class="stat-icon yellow">⚡</div>
+                        </div>
+                        <div class="stat-value" id="statReqSec">0</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">📈 24-Hour Traffic Trends by Proxy</h3>
+                        <div style="font-size: 11px; color: var(--text-dim);">Real-time data • Hourly aggregation</div>
+                    </div>
+                    <div style="padding: 24px; background: rgba(0,0,0,0.2);">
+                        <canvas id="trafficChart" height="80"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Active Proxies</h3>
+                        <button class="btn btn-primary" onclick="showModal('proxy')">+ Add Proxy</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Bind</th>
+                                <th>Backend</th>
+                                <th>Status</th>
+                                <th>Requests</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableHome"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Proxies View -->
+            <div id="viewProxies" class="view">
+                <h1 class="page-title">Proxy Management</h1>
+                <p class="page-subtitle">Configure and manage HTTP/TCP/UDP proxies</p>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">All Proxies</h3>
+                        <button class="btn btn-primary" onclick="showModal('proxy')">+ Add Proxy</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Mode</th>
+                                <th>Bind</th>
+                                <th>Backend</th>
+                                <th>SSL</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableProxies"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Backends View -->
+            <div id="viewBackends" class="view">
+                <h1 class="page-title">Backend Servers</h1>
+                <p class="page-subtitle">Manage upstream backend servers</p>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">All Backends</h3>
+                        <button class="btn btn-primary" onclick="showModal('backend')">+ Add Backend</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Host</th>
+                                <th>Port</th>
+                                <th>Protocol</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBackends"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Domains View -->
+            <div id="viewDomains" class="view">
+                <h1 class="page-title">Domain Routes</h1>
+                <p class="page-subtitle">Configure domain-based routing rules</p>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">All Routes</h3>
+                        <button class="btn btn-primary" onclick="showModal('domain')">+ Add Route</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>Proxy</th>
+                                <th>Backend</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableDomains"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Security Features View -->
+            <div id="viewSecurity" class="view">
+                <h1 class="page-title">🔒 Advanced Security Features</h1>
+                <p class="page-subtitle">Enterprise-grade protection & threat intelligence</p>
+
+                <!-- Operating Mode Toggle -->
+                <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <h3 style="margin: 0 0 8px 0; font-size: 20px;">🎯 Operating Mode</h3>
+                            <p style="margin: 0; opacity: 0.9;">Control how security policies are enforced</p>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn" style="background: rgba(255,255,255,0.2); border: 2px solid white; color: white; font-weight: bold;">
+                                👁️ Audit Mode
+                            </button>
+                            <button class="btn btn-primary" style="background: white; color: #667eea; font-weight: bold;">
+                                🛡️ Blocking Mode
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+
+        </main>
+    </div>
+
+    <!-- Proxy Modal -->
+    <div id="modalProxy" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Proxy</h3>
+                <button class="btn-close" onclick="closeModal('proxy')">&times;</button>
+            </div>
+            <form id="formProxy">
+                <input type="hidden" name="id">
+                <div class="modal-body">
+                    <!-- Basic Configuration -->
+                    <h4 style="margin: 0 0 16px 0; color: #3b82f6; font-size: 14px; font-weight: 600; text-transform: uppercase;">⚙️ Basic Configuration</h4>
+                    
+                    <div class="form-group">
+                        <label>Proxy Name</label>
+                        <input type="text" name="name" required placeholder="my-proxy">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Mode</label>
+                            <select name="mode" required>
+                                <option value="http">HTTP/HTTPS</option>
+                                <option value="tcp">TCP</option>
+                                <option value="udp">UDP</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Port</label>
+                            <input type="number" name="port" required min="1" max="65535" placeholder="8080">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Bind Address</label>
+                        <input type="text" name="bind" required value="0.0.0.0" placeholder="0.0.0.0">
+                    </div>
+                    <div class="form-group">
+                        <label>Default Backend</label>
+                        <select name="default_backend" id="proxyBackend" required>
+                            <option value="">Select backend...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Security Options -->
+                    <h4 style="margin: 24px 0 16px 0; color: #10b981; font-size: 14px; font-weight: 600; text-transform: uppercase;">🔒 Security Options</h4>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="use_ssl" id="useSSL">
+                        <label for="useSSL">Enable HTTPS (SSL/TLS)</label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>IP Whitelist (allowed IPs, one per line)</label>
+                        <textarea name="ip_whitelist" rows="3" placeholder="192.168.1.100&#10;10.0.0.0/24&#10;Leave empty to allow all"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>IP Blacklist (blocked IPs, one per line)</label>
+                        <textarea name="ip_blacklist" rows="3" placeholder="1.2.3.4&#10;5.6.7.0/24&#10;Malicious IP addresses"></textarea>
+                    </div>
+                    
+                    <!-- Rate Limiting -->
+                    <h4 style="margin: 24px 0 16px 0; color: #f59e0b; font-size: 14px; font-weight: 600; text-transform: uppercase;">⚡ Rate Limiting</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Max Requests/Minute (per IP)</label>
+                            <input type="number" name="rate_limit" min="0" placeholder="100" value="0">
+                            <small style="color: #6b7280;">0 = unlimited</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Concurrent Connections</label>
+                            <input type="number" name="max_connections" min="0" placeholder="1000" value="0">
+                            <small style="color: #6b7280;">0 = unlimited</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Options -->
+                    <h4 style="margin: 24px 0 16px 0; color: #8b5cf6; font-size: 14px; font-weight: 600; text-transform: uppercase;">🚀 Advanced Options</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Connection Timeout (seconds)</label>
+                            <input type="number" name="timeout" min="1" placeholder="30" value="30">
+                        </div>
+                        <div class="form-group">
+                            <label>Keep-Alive Timeout (seconds)</label>
+                            <input type="number" name="keepalive_timeout" min="0" placeholder="60" value="60">
+                        </div>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="enable_logging" id="enableLogging" checked>
+                        <label for="enableLogging">Enable Request Logging</label>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="enable_compression" id="enableCompression">
+                        <label for="enableCompression">Enable GZIP Compression</label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Custom Headers (JSON format)</label>
+                        <textarea name="custom_headers" rows="3" placeholder='{"X-Custom-Header": "value", "X-Powered-By": "ProxyOX"}'></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('proxy')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Proxy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Backend Modal -->
+    <div id="modalBackend" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Backend</h3>
+                <button class="btn-close" onclick="closeModal('backend')">&times;</button>
+            </div>
+            <form id="formBackend">
+                <input type="hidden" name="id">
+                <div class="modal-body">
+                    <!-- Basic Configuration -->
+                    <h4 style="margin: 0 0 16px 0; color: #3b82f6; font-size: 14px; font-weight: 600; text-transform: uppercase;">⚙️ Basic Configuration</h4>
+                    
+                    <div class="form-group">
+                        <label>Backend Name</label>
+                        <input type="text" name="name" required placeholder="backend-1">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Host / IP Address</label>
+                            <input type="text" name="host" required placeholder="10.10.0.204">
+                        </div>
+                        <div class="form-group">
+                            <label>Port</label>
+                            <input type="number" name="port" required min="1" max="65535" placeholder="8443">
+                        </div>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="https" id="useHTTPS">
+                        <label for="useHTTPS">Use HTTPS Connection</label>
+                    </div>
+                    
+                    <!-- Health Check -->
+                    <h4 style="margin: 24px 0 16px 0; color: #10b981; font-size: 14px; font-weight: 600; text-transform: uppercase;">🏥 Health Check</h4>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="enable_health_check" id="enableHealthCheck">
+                        <label for="enableHealthCheck">Enable Health Monitoring</label>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Health Check Interval (seconds)</label>
+                            <input type="number" name="health_check_interval" min="5" placeholder="30" value="30">
+                        </div>
+                        <div class="form-group">
+                            <label>Health Check Path</label>
+                            <input type="text" name="health_check_path" placeholder="/health">
+                        </div>
+                    </div>
+                    
+                    <!-- Load Balancing -->
+                    <h4 style="margin: 24px 0 16px 0; color: #f59e0b; font-size: 14px; font-weight: 600; text-transform: uppercase;">⚖️ Load Balancing</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Weight (for load balancing)</label>
+                            <input type="number" name="weight" min="1" placeholder="100" value="100">
+                            <small style="color: #6b7280;">Higher = more traffic</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Failures Before Disable</label>
+                            <input type="number" name="max_failures" min="0" placeholder="3" value="3">
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Options -->
+                    <h4 style="margin: 24px 0 16px 0; color: #8b5cf6; font-size: 14px; font-weight: 600; text-transform: uppercase;">🚀 Advanced Options</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Connection Timeout (seconds)</label>
+                            <input type="number" name="backend_timeout" min="1" placeholder="10" value="10">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Retries</label>
+                            <input type="number" name="max_retries" min="0" placeholder="2" value="2">
+                        </div>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="verify_ssl" id="verifySSL" checked>
+                        <label for="verifySSL">Verify SSL Certificate</label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Notes / Description</label>
+                        <textarea name="description" rows="2" placeholder="Optional description for this backend server"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('backend')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Backend</button>
+                </div>
+            </form>
+        </div>
+    </div>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Domain Modal -->
+    <div id="modalDomain" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Domain Route</h3>
+                <button class="btn-close" onclick="closeModal('domain')">&times;</button>
+            </div>
+            <form id="formDomain">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Domain</label>
+                        <input type="text" name="domain" required placeholder="example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Proxy</label>
+                        <select name="proxy_id" id="domainProxy" required>
+                            <option value="">Select proxy...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Backend</label>
+                        <select name="backend_id" id="domainBackend" required>
+                            <option value="">Select backend...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('domain')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <script>
-        let ws = null;
-        let reconnectTimeout = null;
-        let chartData = {};
+        let token = localStorage.getItem('token');
+        let proxies = [], backends = [], domains = [];
+        let timer;
+        let trafficChart = null;
+        let trafficHistory = {}; // Store traffic per proxy per hour
+        let reqPerSec = 0;
+        let lastTotalRequests = 0;
+        let lastProxyRequests = {}; // Track last request count per proxy
+
+        // Chart configuration
+        const CHART_CONFIG = {
+            maxPoints: 60,        // 60 seconds = 1 minute of history
+            updateInterval: 1000, // Update every 1 second
+            colors: [
+                { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.2)' },
+                { border: '#10b981', bg: 'rgba(16, 185, 129, 0.2)' },
+                { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.2)' },
+                { border: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' },
+                { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.2)' },
+                { border: '#ec4899', bg: 'rgba(236, 72, 153, 0.2)' },
+                { border: '#06b6d4', bg: 'rgba(6, 182, 212, 0.2)' }
+            ]
+        };
+
+        // Init
+        if (token) showDash(); else showLogin();
+
+        // Login
+        document.getElementById('loginForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const user = document.getElementById('user').value;
+            const pass = document.getElementById('pass').value;
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: user, password: pass})
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    token = data.access_token;
+                    localStorage.setItem('token', token);
+                    showDash();
+                } else showError(data.error || 'Login failed');
+            } catch (err) { showError('Connection error'); }
+        };
+
+        document.getElementById('logout').onclick = () => {
+            localStorage.removeItem('token');
+            token = null;
+            showLogin();
+        };
+
+        function showLogin() {
+            document.getElementById('login').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            if (timer) clearInterval(timer);
+        }
+
+        function showDash() {
+            document.getElementById('login').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            initChart();
+            loadTrafficHistoryFromDB(); // Load saved data
+            loadAll();
+            
+            // Real-time chart updates every second
+            setInterval(() => {
+                loadProxies().then(() => {
+                    updateTrafficChart();
+                    updateStats();
+                });
+            }, CHART_CONFIG.updateInterval);
+            
+            // Don't connect WebSocket to avoid double updates
+            // connectWebSocket();
+        }
 
         function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
-            ws.onopen = () => {
-                console.log('WebSocket connecté');
-                updateStatus(true);
-            };
-
+            const ws = new WebSocket(`ws://${window.location.host}/ws`);
             ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    if (data.proxies && data.proxies.length > 0) {
-                        // Logger TOUS les proxies une fois
-                        if (!window.proxiesLogged) {
-                            console.log('=== LISTE COMPLÈTE DES PROXIES ===');
-                            data.proxies.forEach((p, i) => {
-                                console.log(`Proxy ${i}: ${p.name} - Protocol: ${p.protocol} - Listen: ${p.listen}`);
-                                console.log('  Stats:', p.stats);
-                            });
-                            window.proxiesLogged = true;
-                        }
-                        
-                        // Chercher le proxy HTTP (reverse proxy)
-                        const httpProxy = data.proxies.find(p => p.protocol === 'HTTP');
-                        if (httpProxy) {
-                            console.log('🌐 HTTP Proxy:', httpProxy.name, 'Requêtes:', httpProxy.stats.requests);
-                        }
-                    }
-                    updateDashboard(data);
-                } catch (error) {
-                    console.error('Erreur parsing données:', error);
+                const data = JSON.parse(event.data);
+                if (data.type === 'stats') {
+                    // Update stats without reloading page
+                    updateStatsFromWebSocket(data.data);
                 }
             };
+            ws.onerror = () => console.warn('WebSocket disconnected, falling back to polling');
+            ws.onclose = () => setTimeout(connectWebSocket, 5000);
+        }
 
-            ws.onerror = (error) => {
-                console.error('Erreur WebSocket:', error);
-                updateStatus(false);
+        function updateStatsFromWebSocket(stats) {
+            // Update proxy list without full reload
+            loadProxies();
+            updateStats();
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error');
+            el.textContent = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 5000);
+        }
+
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.onclick = (e) => {
+                if (item.classList.contains('locked')) { e.preventDefault(); return; }
+                e.preventDefault();
+                const view = item.dataset.view;
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1)).classList.add('active');
+                if (view === 'proxies') renderProxies();
+                if (view === 'backends') renderBackends();
+                if (view === 'domains') renderDomains();
             };
+        });
 
-            ws.onclose = () => {
-                console.log('WebSocket déconnecté');
-                updateStatus(false);
+        // Load Data
+        async function loadAll() {
+            await Promise.all([loadProxies(), loadBackends(), loadDomains()]);
+            updateStats();
+            renderHome();
+            updateSelects();
+        }
+
+        async function loadProxies() {
+            try {
+                const res = await fetch('/api/proxies', {headers: {'Authorization': `Bearer ${token}`}});
+                if (res.ok) {
+                    const data = await res.json();
+                    proxies = data.proxies || [];
+                } else if (res.status === 401) showLogin();
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadBackends() {
+            try {
+                const res = await fetch('/api/backends', {headers: {'Authorization': `Bearer ${token}`}});
+                if (res.ok) {
+                    const data = await res.json();
+                    backends = data.backends || [];
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadDomains() {
+            try {
+                const res = await fetch('/api/domain-routes', {headers: {'Authorization': `Bearer ${token}`}});
+                if (res.ok) {
+                    const data = await res.json();
+                    domains = data.routes || [];
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function updateStats() {
+            const total = proxies.reduce((sum, p) => sum + (p.total_requests || 0), 0);
+            const active = proxies.filter(p => p.status === 'running').length;
+            
+            // Calculate req/sec
+            if (lastTotalRequests > 0) {
+                reqPerSec = Math.max(0, Math.round((total - lastTotalRequests) / 2));
+            }
+            lastTotalRequests = total;
+            
+            // Update stats cards with animation
+            updateStatValue('statRequests', total.toLocaleString());
+            updateStatValue('statProxies', active);
+            updateStatValue('statReqSec', reqPerSec);
+            
+            // Update traffic chart with per-proxy data
+            updateTrafficChart();
+        }
+
+        function updateStatValue(id, value) {
+            const el = document.getElementById(id);
+            if (el && el.textContent !== value.toString()) {
+                el.classList.add('updating');
+                el.textContent = value;
+                setTimeout(() => el.classList.remove('updating'), 500);
+            }
+        }
+
+        // ========== REAL-TIME TRAFFIC CHART (FROM SCRATCH) ==========
+
+        function initChart() {
+            const ctx = document.getElementById('trafficChart');
+            if (!ctx) return;
+            
+            // Create time labels (last 60 seconds)
+            const labels = [];
+            for (let i = CHART_CONFIG.maxPoints - 1; i >= 0; i--) {
+                if (i === 0) {
+                    labels.push('Now');
+                } else if (i % 10 === 0) {
+                    labels.push('-' + i + 's');
+                } else {
+                    labels.push('');
+                }
+            }
+            
+            trafficChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#e4e7eb',
+                                usePointStyle: true,
+                                padding: 15,
+                                font: { size: 12, family: 'Inter' }
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: '#13171f',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            titleColor: '#e4e7eb',
+                            bodyColor: '#e4e7eb',
+                            padding: 12,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + ' req/s';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { 
+                                color: '#6b7280',
+                                maxRotation: 0,
+                                autoSkip: false
+                            }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { 
+                                color: '#6b7280',
+                                callback: function(value) {
+                                    return value >= 1000 ? (value/1000).toFixed(1) + 'k' : value;
+                                }
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    animation: false // Disable animations for real-time smoothness
+                }
+            });
+            
+            // Initialize data storage
+            window.realtimeData = {};
+            window.lastRequestCount = {};
+            
+            console.log('✅ Real-time chart initialized (60 seconds window)');
+        }
+
+        function updateTrafficChart() {
+            if (!trafficChart) return;
+            
+            const datasets = [];
+            let colorIndex = 0;
+            
+            proxies.forEach(proxy => {
+                const proxyName = proxy.name;
+                const currentTotal = proxy.total_requests || 0;
                 
-                // Reconnexion automatique après 3 secondes
-                reconnectTimeout = setTimeout(() => {
-                    console.log('Tentative de reconnexion...');
-                    connectWebSocket();
-                }, 3000);
-            };
+                // Initialize data array if needed
+                if (!window.realtimeData[proxyName]) {
+                    window.realtimeData[proxyName] = new Array(CHART_CONFIG.maxPoints).fill(0);
+                    window.lastRequestCount[proxyName] = currentTotal;
+                }
+                
+                // Calculate requests per second (delta since last update)
+                const lastCount = window.lastRequestCount[proxyName] || 0;
+                const requestsPerSecond = Math.max(0, currentTotal - lastCount);
+                
+                // Update counter
+                window.lastRequestCount[proxyName] = currentTotal;
+                
+                // Shift data left and add new value
+                window.realtimeData[proxyName].shift();
+                window.realtimeData[proxyName].push(requestsPerSecond);
+                
+                // Only show active proxies or those with recent traffic
+                const hasTraffic = window.realtimeData[proxyName].some(v => v > 0);
+                if (proxy.status === 'running' || hasTraffic) {
+                    const color = CHART_CONFIG.colors[colorIndex % CHART_CONFIG.colors.length];
+                    colorIndex++;
+                    
+                    datasets.push({
+                        label: proxyName,
+                        data: [...window.realtimeData[proxyName]], // Clone array
+                        borderColor: color.border,
+                        backgroundColor: color.bg,
+                        borderWidth: 2.5,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        pointBackgroundColor: color.border,
+                        pointBorderColor: '#0a0d11',
+                        pointBorderWidth: 2
+                    });
+                }
+            });
+            
+            trafficChart.data.datasets = datasets;
+            trafficChart.update('none'); // Update without animation
         }
 
-        function updateStatus(connected) {
-            const statusDot = document.getElementById('statusDot');
-            const statusText = document.getElementById('statusText');
-            
-            if (connected) {
-                statusDot.classList.remove('disconnected');
-                statusText.textContent = 'Connecté';
-            } else {
-                statusDot.classList.add('disconnected');
-                statusText.textContent = 'Déconnecté';
-            }
+        // Cleanup old functions (no longer needed)
+        async function saveTrafficHistory() {
+            // Real-time chart doesn't need persistence
         }
 
-        function updateDashboard(data) {
-            const proxies = data.proxies || [];
-            
-            // Supprimer le message de chargement si présent
-            const loading = document.querySelector('.loading');
-            if (loading) {
-                loading.remove();
-            }
-            
-            // Mettre à jour les statistiques globales
-            updateStats(data, proxies);
-            
-            // Mettre à jour les cartes de proxies
-            updateProxies(proxies);
+        async function saveCurrentTrafficHistory() {
+            // Real-time chart doesn't need persistence
         }
 
-        function updateStats(data, proxies) {
-            const totalConnections = proxies.reduce((sum, p) => {
-                const stats = p.stats || {};
-                return sum + (stats.total_connections || p.total_connections || 0);
-            }, 0);
-            const activeConnections = proxies.reduce((sum, p) => {
-                const stats = p.stats || {};
-                return sum + (stats.active_connections || p.active_connections || 0);
-            }, 0);
-            const totalBytesIn = proxies.reduce((sum, p) => {
-                const stats = p.stats || {};
-                return sum + (stats.bytes_received || p.bytes_in || 0);
-            }, 0);
-            const totalBytesOut = proxies.reduce((sum, p) => {
-                const stats = p.stats || {};
-                return sum + (stats.bytes_sent || p.bytes_out || 0);
-            }, 0);
-
-            const statsHTML = `
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <h3>Proxies Actifs</h3>
-                        <div class="stat-value">${proxies.filter(p => p.status === 'running').length}</div>
-                        <div class="stat-change">sur ${proxies.length} total</div>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Connexions Actives</h3>
-                        <div class="stat-value">${activeConnections}</div>
-                        <div class="stat-change">${totalConnections} total</div>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Données Reçues</h3>
-                        <div class="stat-value">${formatBytes(totalBytesIn)}</div>
-                        <div class="stat-change up">↑ Entrant</div>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Données Envoyées</h3>
-                        <div class="stat-value">${formatBytes(totalBytesOut)}</div>
-                        <div class="stat-change down">↓ Sortant</div>
-                    </div>
-                </div>
-            `;
-
-            // Vérifier si les stats existent déjà
-            const existingStats = document.querySelector('.stats-grid');
-            if (existingStats) {
-                existingStats.outerHTML = statsHTML;
-            } else {
-                const app = document.getElementById('app');
-                app.insertAdjacentHTML('afterbegin', statsHTML);
-            }
+        async function loadTrafficHistoryFromDB() {
+            // Real-time chart starts fresh
+            console.log('🚀 Real-time mode: Starting fresh');
         }
 
-        function updateProxies(proxies) {
-            // Supprimer l'ancien contenu proxies
-            const existingProxies = document.querySelector('.proxies-grid');
-            const existingEmpty = document.querySelector('.empty-state');
-            if (existingProxies) existingProxies.remove();
-            if (existingEmpty) existingEmpty.remove();
+        function updateSelects() {
+            // Proxy backend select
+            const pb = document.getElementById('proxyBackend');
+            pb.innerHTML = '<option value="">Select backend...</option>';
+            backends.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                opt.textContent = `${b.name} (${b.server_address}:${b.server_port})`;
+                pb.appendChild(opt);
+            });
 
-            if (proxies.length === 0) {
-                document.getElementById('app').innerHTML += `
-                    <div class="empty-state">
-                        <h2>Aucun proxy configuré</h2>
-                        <p>Configurez vos proxies dans le fichier config.yaml</p>
-                    </div>
-                `;
+            // Domain proxy select
+            const dp = document.getElementById('domainProxy');
+            dp.innerHTML = '<option value="">Select proxy...</option>';
+            proxies.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                dp.appendChild(opt);
+            });
+
+            // Domain backend select
+            const db = document.getElementById('domainBackend');
+            db.innerHTML = '<option value="">Select backend...</option>';
+            backends.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                opt.textContent = `${b.name} (${b.server_address}:${b.server_port})`;
+                db.appendChild(opt);
+            });
+        }
+
+        function renderHome() {
+            const tbody = document.getElementById('tableHome');
+            if (!proxies.length) {
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">🔄</div><div>No proxies</div></div></td></tr>';
                 return;
             }
-
-            const proxiesHTML = proxies.map(proxy => {
-                // Extraire les stats
-                const stats = proxy.stats || {};
-                const activeConn = stats.active_connections || 0;
-                const totalConn = stats.total_connections || 0;
-                const bytesIn = stats.bytes_received || 0;
-                const bytesOut = stats.bytes_sent || 0;
-                const requests = stats.requests || 0;
-                
-                // Mettre à jour l'historique du graphique
-                if (!chartData[proxy.name]) {
-                    chartData[proxy.name] = [];
-                }
-                // Utiliser les requêtes pour HTTP, total_connections pour TCP/UDP (pas active qui retombe à 0)
-                const currentValue = requests > 0 ? requests : totalConn;
-                chartData[proxy.name].push(currentValue);
-                if (chartData[proxy.name].length > 50) {
-                    chartData[proxy.name].shift();
-                }
-
-                const chartBars = chartData[proxy.name].map(value => {
-                    const maxValue = Math.max(...chartData[proxy.name], 1);
-                    const height = (value / maxValue) * 100;
-                    return `<div class="chart-bar" style="height: ${height}%"></div>`;
-                }).join('');
-                
-                // Stats par domaine pour les reverse proxies
-                let domainStatsHTML = '';
-                if (proxy.protocol === 'HTTP' && stats.domains) {
-                    domainStatsHTML = '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;"><strong style="color: #2d3748; font-size: 13px;">Stats par domaine:</strong>';
-                    for (const [domain, domainStats] of Object.entries(stats.domains)) {
-                        domainStatsHTML += `
-                            <div class="proxy-info-item" style="font-size: 12px; padding: 4px 0;">
-                                <span class="proxy-info-label">${domain}</span>
-                                <span class="proxy-info-value">${domainStats.requests} req (${formatBytes(domainStats.bytes_sent)})</span>
-                            </div>
-                        `;
-                    }
-                    domainStatsHTML += '</div>';
-                }
-
-                return `
-                    <div class="proxy-card">
-                        <div class="proxy-header">
-                            <div class="proxy-name">${proxy.name || 'Unknown'}</div>
-                            <div class="proxy-status ${proxy.status || 'stopped'}">${proxy.status === 'running' ? 'Actif' : 'Arrêté'}</div>
-                        </div>
-                        <div class="proxy-info">
-                            <div class="proxy-info-item">
-                                <span class="proxy-info-label">Protocole</span>
-                                <span class="proxy-info-value">${(proxy.protocol || 'unknown').toUpperCase()}</span>
-                            </div>
-                            <div class="proxy-info-item">
-                                <span class="proxy-info-label">Écoute</span>
-                                <span class="proxy-info-value">${proxy.listen || 'N/A'}</span>
-                            </div>
-                            <div class="proxy-info-item">
-                                <span class="proxy-info-label">Cible</span>
-                                <span class="proxy-info-value">${proxy.target || 'N/A'}</span>
-                            </div>
-                            ${proxy.protocol === 'HTTP' ? `
-                            <div class="proxy-info-item">
-                                <span class="proxy-info-label">Requêtes</span>
-                                <span class="proxy-info-value">${requests}</span>
-                            </div>
-                            ` : `
-                            <div class="proxy-info-item">
-                                <span class="proxy-info-label">Connexions</span>
-                                <span class="proxy-info-value">${activeConn} / ${totalConn}</span>
-                            </div>
-                            `}
-                            <div class="proxy-info-item">
-                                <span class="proxy-info-label">Données</span>
-                                <span class="proxy-info-value">${formatBytes(bytesIn + bytesOut)}</span>
-                            </div>
-                        </div>
-                        ${domainStatsHTML}
-                        <div class="proxy-chart">
-                            ${chartBars}
-                        </div>
-                        <div class="proxy-actions">
-                            ${proxy.status === 'running' 
-                                ? `<button class="btn btn-danger" onclick="stopProxy('${proxy.name}')">Arrêter</button>`
-                                : `<button class="btn btn-success" onclick="startProxy('${proxy.name}')">Démarrer</button>`
-                            }
-                            <button class="btn btn-primary" onclick="viewDetails('${proxy.name}')">Détails</button>
-                        </div>
-                    </div>
-                `;
+            tbody.innerHTML = proxies.map(p => {
+                const b = backends.find(x => x.id === p.default_backend_id);
+                const bs = b ? `${b.server_address}:${b.server_port}` : 'N/A';
+                const st = p.status === 'running' ? '<span class="badge success">Running</span>' : '<span class="badge danger">Stopped</span>';
+                return `<tr>
+                    <td><strong>${p.name}</strong></td>
+                    <td><span class="badge info">${p.mode.toUpperCase()}</span></td>
+                    <td>${p.bind_address}:${p.bind_port}</td>
+                    <td>${bs}</td>
+                    <td>${st}</td>
+                    <td>${(p.total_requests || 0).toLocaleString()}</td>
+                    <td><div class="actions">
+                        <button class="btn-icon danger" onclick="delProxy(${p.id})">🗑️</button>
+                    </div></td>
+                </tr>`;
             }).join('');
-
-            const proxiesContainer = document.createElement('div');
-            proxiesContainer.className = 'proxies-grid';
-            proxiesContainer.innerHTML = proxiesHTML;
-            document.getElementById('app').appendChild(proxiesContainer);
         }
 
-        async function stopProxy(name) {
+        function renderProxies() {
+            const tbody = document.getElementById('tableProxies');
+            if (!proxies.length) {
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">🔄</div><div>No proxies</div></div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = proxies.map(p => {
+                const b = backends.find(x => x.id === p.default_backend_id);
+                const bs = b ? `${b.server_address}:${b.server_port}` : 'N/A';
+                const st = p.status === 'running' ? '<span class="badge success">Running</span>' : '<span class="badge danger">Stopped</span>';
+                const ssl = p.use_ssl ? '<span class="badge success">Yes</span>' : '<span class="badge warning">No</span>';
+                return `<tr>
+                    <td><strong>${p.name}</strong></td>
+                    <td><span class="badge info">${p.mode.toUpperCase()}</span></td>
+                    <td>${p.bind_address}:${p.bind_port}</td>
+                    <td>${bs}</td>
+                    <td>${ssl}</td>
+                    <td>${st}</td>
+                    <td><div class="actions">
+                        <button class="btn-icon primary" onclick="editProxy(${p.id})" title="Edit">✏️</button>
+                        <button class="btn-icon danger" onclick="delProxy(${p.id})" title="Delete">🗑️</button>
+                    </div></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderBackends() {
+            const tbody = document.getElementById('tableBackends');
+            if (!backends.length) {
+                tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🖥️</div><div>No backends</div></div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = backends.map(b => {
+                const proto = b.use_ssl ? '<span class="badge success">HTTPS</span>' : '<span class="badge info">HTTP</span>';
+                return `<tr>
+                    <td><strong>${b.name}</strong></td>
+                    <td>${b.server_address}</td>
+                    <td>${b.server_port}</td>
+                    <td>${proto}</td>
+                    <td><div class="actions">
+                        <button class="btn-icon primary" onclick="editBackend(${b.id})" title="Edit">✏️</button>
+                        <button class="btn-icon danger" onclick="delBackend(${b.id})">🗑️</button>
+                    </div></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderDomains() {
+            const tbody = document.getElementById('tableDomains');
+            if (!domains.length) {
+                tbody.innerHTML = '<tr><td colspan="4"><div class="empty"><div class="empty-icon">🌐</div><div>No routes</div></div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = domains.map(d => {
+                const p = proxies.find(x => x.id === d.proxy_id);
+                const b = backends.find(x => x.id === d.backend_id);
+                const pn = p ? p.name : 'N/A';
+                const bn = b ? `${b.server_address}:${b.server_port}` : 'N/A';
+                return `<tr>
+                    <td><strong>${d.domain}</strong></td>
+                    <td>${pn}</td>
+                    <td>${bn}</td>
+                    <td><div class="actions">
+                        <button class="btn-icon danger" onclick="delDomain(${d.id})">🗑️</button>
+                    </div></td>
+                </tr>`;
+            }).join('');
+        }
+
+        // Modals
+        function showModal(type) {
+            const modal = document.getElementById('modal' + type.charAt(0).toUpperCase() + type.slice(1));
+            const form = modal.querySelector('form');
+            form.reset();
+            // Reset hidden ID for new item
+            const idField = form.querySelector('input[name="id"]');
+            if (idField) idField.value = '';
+            // Update title
+            modal.querySelector('.modal-title').textContent = 'Add ' + type.charAt(0).toUpperCase() + type.slice(1);
+            modal.querySelector('button[type="submit"]').textContent = 'Save ' + type.charAt(0).toUpperCase() + type.slice(1);
+            modal.classList.add('show');
+        }
+
+        function closeModal(type) {
+            document.getElementById('modal' + type.charAt(0).toUpperCase() + type.slice(1)).classList.remove('show');
+        }
+
+        // Edit functions
+        function editProxy(id) {
+            const proxy = proxies.find(p => p.id === id);
+            if (!proxy) return;
+            
+            const modal = document.getElementById('modalProxy');
+            const form = modal.querySelector('form');
+            
+            // Fill form with proxy data
+            form.querySelector('input[name="id"]').value = proxy.id;
+            form.querySelector('input[name="name"]').value = proxy.name;
+            form.querySelector('select[name="mode"]').value = proxy.mode;
+            form.querySelector('input[name="port"]').value = proxy.bind_port;
+            form.querySelector('input[name="bind"]').value = proxy.bind_address;
+            form.querySelector('select[name="default_backend"]').value = proxy.default_backend_id;
+            form.querySelector('input[name="use_ssl"]').checked = proxy.use_ssl;
+            
+            // Fill advanced fields with defaults if not present
+            form.querySelector('textarea[name="ip_whitelist"]').value = proxy.ip_whitelist || '';
+            form.querySelector('textarea[name="ip_blacklist"]').value = proxy.ip_blacklist || '';
+            form.querySelector('input[name="rate_limit"]').value = proxy.rate_limit || 0;
+            form.querySelector('input[name="max_connections"]').value = proxy.max_connections || 0;
+            form.querySelector('input[name="timeout"]').value = proxy.timeout || 30;
+            form.querySelector('input[name="keepalive_timeout"]').value = proxy.keepalive_timeout || 60;
+            form.querySelector('input[name="enable_logging"]').checked = proxy.enable_logging !== false;
+            form.querySelector('input[name="enable_compression"]').checked = proxy.enable_compression || false;
+            form.querySelector('textarea[name="custom_headers"]').value = proxy.custom_headers ? JSON.stringify(proxy.custom_headers, null, 2) : '';
+            
+            // Update modal title
+            modal.querySelector('.modal-title').textContent = 'Edit Proxy: ' + proxy.name;
+            modal.querySelector('button[type="submit"]').textContent = 'Update Proxy';
+            modal.classList.add('show');
+        }
+
+        function editBackend(id) {
+            const backend = backends.find(b => b.id === id);
+            if (!backend) return;
+            
+            const modal = document.getElementById('modalBackend');
+            const form = modal.querySelector('form');
+            
+            // Fill form with backend data
+            form.querySelector('input[name="id"]').value = backend.id;
+            form.querySelector('input[name="name"]').value = backend.name;
+            form.querySelector('input[name="host"]').value = backend.server_address;
+            form.querySelector('input[name="port"]').value = backend.server_port;
+            form.querySelector('input[name="https"]').checked = backend.use_ssl;
+            
+            // Fill advanced fields
+            form.querySelector('input[name="enable_health_check"]').checked = backend.enable_health_check || false;
+            form.querySelector('input[name="health_check_interval"]').value = backend.health_check_interval || 30;
+            form.querySelector('input[name="health_check_path"]').value = backend.health_check_path || '/health';
+            form.querySelector('input[name="weight"]').value = backend.weight || 100;
+            form.querySelector('input[name="max_failures"]').value = backend.max_failures || 3;
+            form.querySelector('input[name="backend_timeout"]').value = backend.backend_timeout || 10;
+            form.querySelector('input[name="max_retries"]').value = backend.max_retries || 2;
+            form.querySelector('input[name="verify_ssl"]').checked = backend.verify_ssl !== false;
+            form.querySelector('textarea[name="description"]').value = backend.description || '';
+            
+            // Update modal title
+            modal.querySelector('.modal-title').textContent = 'Edit Backend: ' + backend.name;
+            modal.querySelector('button[type="submit"]').textContent = 'Update Backend';
+            modal.classList.add('show');
+        }
+
+        // Forms
+        document.getElementById('formProxy').onsubmit = async (e) => {
+            e.preventDefault();
+            const id = e.target.querySelector('input[name="id"]').value;
+            const isEdit = id !== '';
+            
+            const data = {
+                name: e.target.name.value,
+                mode: e.target.mode.value,
+                bind_port: parseInt(e.target.port.value),
+                bind_address: e.target.bind.value,
+                default_backend_id: parseInt(e.target.default_backend.value),
+                use_ssl: e.target.use_ssl.checked,
+                ip_whitelist: e.target.ip_whitelist.value.trim(),
+                ip_blacklist: e.target.ip_blacklist.value.trim(),
+                rate_limit: parseInt(e.target.rate_limit.value) || 0,
+                max_connections: parseInt(e.target.max_connections.value) || 0,
+                timeout: parseInt(e.target.timeout.value) || 30,
+                keepalive_timeout: parseInt(e.target.keepalive_timeout.value) || 60,
+                enable_logging: e.target.enable_logging.checked,
+                enable_compression: e.target.enable_compression.checked
+            };
+            
+            // Parse custom headers
+            const headersText = e.target.custom_headers.value.trim();
+            if (headersText) {
+                try {
+                    data.custom_headers = JSON.parse(headersText);
+                } catch (err) {
+                    alert('Invalid JSON in Custom Headers');
+                    return;
+                }
+            }
+            
             try {
-                const response = await fetch(`/api/proxy/${name}/stop`, { method: 'POST' });
-                const result = await response.json();
-                console.log('Proxy arrêté:', result);
-            } catch (error) {
-                console.error('Erreur arrêt proxy:', error);
-                alert('Erreur lors de l\'arrêt du proxy');
-            }
-        }
+                const url = isEdit ? `/api/proxies/${id}` : '/api/proxies';
+                const method = isEdit ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method: method,
+                    headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    closeModal('proxy');
+                    e.target.reset();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await loadAll();
+                } else if (res.status === 401) {
+                    alert('Session expired. Please login again.');
+                    showLogin();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.error || 'Failed to save proxy'));
+                }
+            } catch (err) { alert('Error: ' + err.message); }
+        };
 
-        async function startProxy(name) {
+        document.getElementById('formBackend').onsubmit = async (e) => {
+            e.preventDefault();
+            const id = e.target.querySelector('input[name="id"]').value;
+            const isEdit = id !== '';
+            
+            const data = {
+                name: e.target.name.value,
+                server_address: e.target.host.value,
+                server_port: parseInt(e.target.port.value),
+                use_ssl: e.target.https.checked,
+                enable_health_check: e.target.enable_health_check.checked,
+                health_check_interval: parseInt(e.target.health_check_interval.value) || 30,
+                health_check_path: e.target.health_check_path.value || '/health',
+                weight: parseInt(e.target.weight.value) || 100,
+                max_failures: parseInt(e.target.max_failures.value) || 3,
+                backend_timeout: parseInt(e.target.backend_timeout.value) || 10,
+                max_retries: parseInt(e.target.max_retries.value) || 2,
+                verify_ssl: e.target.verify_ssl.checked,
+                description: e.target.description.value.trim()
+            };
+            
             try {
-                const response = await fetch(`/api/proxy/${name}/start`, { method: 'POST' });
-                const result = await response.json();
-                console.log('Proxy démarré:', result);
-            } catch (error) {
-                console.error('Erreur démarrage proxy:', error);
-                alert('Erreur lors du démarrage du proxy');
-            }
+                // Get fresh token
+                const currentToken = localStorage.getItem('token');
+                if (!currentToken) {
+                    alert('No authentication token. Please login.');
+                    showLogin();
+                    return;
+                }
+                
+                const url = isEdit ? `/api/backends/${id}` : '/api/backends';
+                const method = isEdit ? 'PUT' : 'POST';
+                console.log(`Sending ${method} request to ${url}`, data);
+                
+                const res = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (res.ok) {
+                    closeModal('backend');
+                    e.target.reset();
+                    await loadBackends();
+                    renderBackends();
+                    updateSelects();
+                } else if (res.status === 401) {
+                    alert('Session expired. Please login again.');
+                    localStorage.removeItem('token');
+                    showLogin();
+                } else {
+                    const err = await res.json().catch(() => ({ error: res.statusText }));
+                    alert('Error: ' + (err.error || 'Failed to save backend'));
+                }
+            } catch (err) { alert('Error: ' + err.message); }
+        };
+
+        document.getElementById('formDomain').onsubmit = async (e) => {
+            e.preventDefault();
+            const data = {
+                domain: e.target.domain.value,
+                proxy_id: parseInt(e.target.proxy_id.value),
+                backend_id: parseInt(e.target.backend_id.value)
+            };
+            try {
+                const res = await fetch('/api/domain-routes', {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    closeModal('domain');
+                    e.target.reset();
+                    await loadDomains();
+                    renderDomains();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.error || 'Failed to create route'));
+                }
+            } catch (err) { alert('Error: ' + err.message); }
+        };
+
+        // Delete
+        async function delProxy(id) {
+            if (!confirm('Delete?')) return;
+            try {
+                const res = await fetch(`/api/proxies/${id}`, {
+                    method: 'DELETE',
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                if (res.ok) { await loadProxies(); renderHome(); renderProxies(); }
+            } catch (err) { alert('Error'); }
         }
 
-        function viewDetails(name) {
-            const proxy = chartData[name];
-            alert(`Détails du proxy: ${name}\n\nHistorique: ${proxy ? proxy.length + ' points de données' : 'Aucune donnée'}`);
+        async function delBackend(id) {
+            if (!confirm('Delete?')) return;
+            try {
+                const res = await fetch(`/api/backends/${id}`, {
+                    method: 'DELETE',
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                if (res.ok) { await loadBackends(); renderBackends(); updateSelects(); }
+            } catch (err) { alert('Error'); }
         }
 
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        async function delDomain(id) {
+            if (!confirm('Delete?')) return;
+            try {
+                const res = await fetch(`/api/domain-routes/${id}`, {
+                    method: 'DELETE',
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                if (res.ok) { await loadDomains(); renderDomains(); }
+            } catch (err) { alert('Error'); }
         }
-
-        // Initialisation
-        connectWebSocket();
-
-        // Nettoyage à la fermeture de la page
-        window.addEventListener('beforeunload', () => {
-            if (ws) {
-                ws.close();
-            }
-            if (reconnectTimeout) {
-                clearTimeout(reconnectTimeout);
-            }
-        });
     </script>
 </body>
 </html>

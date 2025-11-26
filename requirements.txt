@@ -1,7 +1,28 @@
+# Core web framework
 aiohttp>=3.9.0
+
+# Configuration and utilities
 pyyaml>=6.0
 structlog>=23.0.0
 python-dotenv>=1.0.0
+psutil>=5.9.0
+
+# Session and security
 aiohttp-session>=2.12.0
 cryptography>=41.0.0
-psutil>=5.9.0
+pyjwt>=2.8.0
+bcrypt>=4.0.0
+
+# Database
+aiomysql>=0.2.0
+pymysql>=1.1.0
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+mypy>=1.0.0
+
+# Caching (optional, recommended for production)
+redis>=4.5.0
+aioredis>=2.0.0
+
